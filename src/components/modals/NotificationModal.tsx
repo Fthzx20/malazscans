@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { X, AlertCircle, Bell, ShieldAlert } from 'lucide-react';
 import { notificationRepository } from '../../repositories';
 import { Notification } from '../../types';
@@ -8,6 +8,7 @@ import { getThemeStyles } from '../../features/reader/utils/theme';
 export const NotificationModal: React.FC = () => {
   const [mounted, setMounted] = useState(false);
   const [activeNotification, setActiveNotification] = useState<Notification | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const readerSettings = useReaderStore((state) => state.readerSettings);
@@ -37,12 +38,12 @@ export const NotificationModal: React.FC = () => {
     }, 0);
   }, [mounted]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (activeNotification) {
       sessionStorage.setItem(`notification_dismissed_${activeNotification.id}_${activeNotification.updatedAt}`, 'true');
       setActiveNotification(null);
     }
-  };
+  }, [activeNotification]);
 
   // Scroll Lock & Focus Trap
   useEffect(() => {
@@ -88,15 +89,27 @@ export const NotificationModal: React.FC = () => {
     };
   }, [activeNotification]);
 
-  // Auto Close Timer
+  // Auto Close Timer Setup
   useEffect(() => {
-    if (!activeNotification || !activeNotification.autoClose) return;
-    const seconds = activeNotification.autoCloseSeconds || 10;
-    const timer = setTimeout(() => {
-      handleClose();
-    }, seconds * 1000);
-    return () => clearTimeout(timer);
+    if (activeNotification && activeNotification.autoClose) {
+      setTimeLeft(activeNotification.autoCloseSeconds || 10);
+    } else {
+      setTimeLeft(null);
+    }
   }, [activeNotification]);
+
+  // Auto Close Countdown
+  useEffect(() => {
+    if (timeLeft === null) return;
+    if (timeLeft <= 0) {
+      handleClose();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setTimeLeft((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, handleClose]);
 
   if (!mounted || !activeNotification) return null;
 
@@ -164,7 +177,7 @@ export const NotificationModal: React.FC = () => {
 
         <div className={`pt-4 flex justify-between items-center text-[10px] font-mono ${themeStyles.accentText} border-t ${themeStyles.border}`}>
           <span>
-            {activeNotification.autoClose ? `Auto-closing in ${activeNotification.autoCloseSeconds}s...` : 'Notice Board'}
+            {activeNotification.autoClose ? `Auto-closing in ${timeLeft !== null ? timeLeft : (activeNotification.autoCloseSeconds || 10)}s...` : 'Notice Board'}
           </span>
           <button
             onClick={handleClose}
