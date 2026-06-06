@@ -1,10 +1,10 @@
 import React from 'react';
-import { Novel } from '../../../types';
+import { Novel, Chapter } from '../../../types';
 import { useNovelStore } from '../../novels/store/novelStore';
 
 interface CatalogTableProps {
   novels: Novel[];
-  getFlatChapters: (novel: Novel) => any[];
+  getFlatChapters: (novel: Novel) => (Chapter & { volumeTitle: string })[];
 }
 
 export const CatalogTable: React.FC<CatalogTableProps> = ({ novels, getFlatChapters }) => {

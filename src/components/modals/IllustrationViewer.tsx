@@ -32,14 +32,16 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  const draggedRef = useRef(false);
   const modalRef = useRef<HTMLDivElement>(null);
   const activeItem = illustrations[activeIndex];
 
-  // Reset scale and position when switching active illustration
-  useEffect(() => {
+  const [prevActiveIndex, setPrevActiveIndex] = useState(activeIndex);
+  if (activeIndex !== prevActiveIndex) {
+    setPrevActiveIndex(activeIndex);
     setScale(1);
     setPosition({ x: 0, y: 0 });
-  }, [activeIndex]);
+  }
 
   // Trap focus and block body scroll on mount
   useEffect(() => {
@@ -93,13 +95,21 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
     e.preventDefault();
     setIsDragging(true);
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    draggedRef.current = false;
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || scale <= 1) return;
+    const nextX = e.clientX - dragStart.x;
+    const nextY = e.clientY - dragStart.y;
+
+    if (Math.abs(nextX - position.x) > 3 || Math.abs(nextY - position.y) > 3) {
+      draggedRef.current = true;
+    }
+
     setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
+      x: nextX,
+      y: nextY,
     });
   };
 
@@ -116,15 +126,23 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
         x: e.touches[0].clientX - position.x,
         y: e.touches[0].clientY - position.y,
       });
+      draggedRef.current = false;
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || scale <= 1) return;
     if (e.touches.length === 1) {
+      const nextX = e.touches[0].clientX - dragStart.x;
+      const nextY = e.touches[0].clientY - dragStart.y;
+
+      if (Math.abs(nextX - position.x) > 3 || Math.abs(nextY - position.y) > 3) {
+        draggedRef.current = true;
+      }
+
       setPosition({
-        x: e.touches[0].clientX - dragStart.x,
-        y: e.touches[0].clientY - dragStart.y,
+        x: nextX,
+        y: nextY,
       });
     }
   };
@@ -232,7 +250,14 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
             transformOrigin: 'center center',
           }}
-          onClick={onClose}
+          onClick={(e) => {
+            if (draggedRef.current) {
+              e.stopPropagation();
+              draggedRef.current = false;
+              return;
+            }
+            onClose();
+          }}
         >
           <div 
             className="max-w-full max-h-[80vh] flex items-center justify-center p-4"

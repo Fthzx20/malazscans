@@ -17,6 +17,19 @@ async function isAdmin(): Promise<boolean> {
   }
 }
 
+interface InputChapter {
+  id: string;
+  title: string;
+  publishDate?: string;
+  content?: string;
+}
+
+interface InputVolume {
+  volumeNumber: number;
+  title: string;
+  chapters?: InputChapter[];
+}
+
 export async function POST(request: Request) {
   if (!(await isAdmin())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -47,11 +60,11 @@ export async function POST(request: Request) {
         coverImage: body.coverImage || null,
         isRecommended: body.isRecommended || false,
         volumes: {
-          create: (body.volumes || []).map((vol: any) => ({
+          create: (body.volumes as InputVolume[] || []).map((vol) => ({
             volumeNumber: vol.volumeNumber,
             title: vol.title,
             chapters: {
-              create: (vol.chapters || []).map((ch: any) => ({
+              create: (vol.chapters || []).map((ch) => ({
                 id: ch.id,
                 title: ch.title,
                 publishDate: ch.publishDate ? new Date(ch.publishDate) : new Date(),

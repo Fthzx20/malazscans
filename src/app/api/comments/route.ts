@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     // 1. Detect [[Novel Name]] in text
     const mentionRegex = /\[\[(.+?)\]\]/g;
     const matches = Array.from(text.matchAll(mentionRegex));
-    const uniqueTitles = Array.from(new Set(matches.map((m: any) => m[1].trim())));
+    const uniqueTitles = Array.from(new Set(matches.map((m) => (m as RegExpExecArray)[1].trim())));
 
     const titleToNovel: Record<string, { id: string; title: string }> = {};
 
@@ -92,8 +92,15 @@ export async function POST(request: Request) {
       }
     }
 
+    interface CommentBlock {
+      type: 'text' | 'novel';
+      value?: string;
+      novelId?: string;
+      title?: string;
+    }
+
     // 2. Parse text into segment blocks
-    const blocks: any[] = [];
+    const blocks: CommentBlock[] = [];
     let lastIndex = 0;
     const blockRegex = /\[\[(.+?)\]\]/g;
     let match;
@@ -179,7 +186,39 @@ export async function POST(request: Request) {
   }
 }
 
-function mapComment(c: any): any {
+interface PrismaCommentReaction {
+  type: string;
+  username: string;
+}
+
+interface PrismaComment {
+  id: number;
+  parentId: number | null;
+  chapterId: string;
+  username: string;
+  text: string;
+  date: Date;
+  isUserRegistered: boolean;
+  reactions?: PrismaCommentReaction[];
+  replies?: PrismaComment[];
+}
+
+interface MappedComment {
+  id: number;
+  parentId: number | null;
+  chapterId: string;
+  user: string;
+  text: string;
+  date: string;
+  isUserRegistered: boolean;
+  reactions: {
+    likes: string[];
+    hearts: string[];
+  };
+  replies: MappedComment[];
+}
+
+function mapComment(c: PrismaComment): MappedComment {
   return {
     id: c.id,
     parentId: c.parentId,
@@ -189,8 +228,8 @@ function mapComment(c: any): any {
     date: c.date?.toISOString?.() || new Date().toISOString(),
     isUserRegistered: c.isUserRegistered,
     reactions: {
-      likes: (c.reactions || []).filter((r: any) => r.type === 'like').map((r: any) => r.username),
-      hearts: (c.reactions || []).filter((r: any) => r.type === 'heart').map((r: any) => r.username),
+      likes: (c.reactions || []).filter((r) => r.type === 'like').map((r) => r.username),
+      hearts: (c.reactions || []).filter((r) => r.type === 'heart').map((r) => r.username),
     },
     replies: (c.replies || []).map(mapComment),
   };

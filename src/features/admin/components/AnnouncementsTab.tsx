@@ -16,14 +16,17 @@ export const AnnouncementsTab: React.FC = () => {
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [autoClose, setAutoClose] = useState(true);
   const [autoCloseSeconds, setAutoCloseSeconds] = useState(10);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() =>
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
   const [createdAt, setCreatedAt] = useState('');
 
   useEffect(() => {
-    setNotifications(notificationRepository.getAll());
+    const data = notificationRepository.getAll();
+    setTimeout(() => {
+      setNotifications(data);
+    }, 0);
   }, []);
 
   const saveNotificationsState = (updatedList: Notification[]) => {
@@ -178,7 +181,7 @@ export const AnnouncementsTab: React.FC = () => {
               <label className="text-[10px] text-[#737373] uppercase font-bold block">Priority</label>
               <select
                 value={priority}
-                onChange={(e) => setPriority(e.target.value as any)}
+                onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
                 className="w-full bg-[#151515] border border-[#262626] p-3 text-white focus:outline-none focus:border-[#FF3D00] rounded-none uppercase font-bold"
               >
                 <option value="low">Low</option>
@@ -190,7 +193,7 @@ export const AnnouncementsTab: React.FC = () => {
               <label className="text-[10px] text-[#737373] uppercase font-bold block">Status</label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
                 className="w-full bg-[#151515] border border-[#262626] p-3 text-white focus:outline-none focus:border-[#FF3D00] rounded-none uppercase font-bold"
               >
                 <option value="published">Published</option>

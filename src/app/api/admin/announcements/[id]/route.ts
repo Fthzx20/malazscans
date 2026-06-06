@@ -29,7 +29,16 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const data: any = {};
+    const data: {
+      title?: string;
+      content?: string;
+      priority?: string;
+      status?: string;
+      startDate?: Date;
+      endDate?: Date;
+      autoDismissDuration?: number;
+      displayMode?: 'banner' | 'modal';
+    } = {};
 
     if (body.title !== undefined) data.title = body.title;
     if (body.content !== undefined) data.content = body.content;

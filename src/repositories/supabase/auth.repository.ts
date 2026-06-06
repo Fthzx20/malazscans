@@ -9,8 +9,9 @@
 import { IAuthRepository } from '../interfaces';
 import { AuthUser, AuthResult, LoginCredentials, RegisterCredentials, UserRole } from '../../types/auth';
 import { createClient } from '../../lib/supabase/client';
+import { User } from '@supabase/supabase-js';
 
-function mapSupabaseUser(supabaseUser: any): AuthUser {
+function mapSupabaseUser(supabaseUser: User): AuthUser {
   const role: UserRole = supabaseUser.user_metadata?.role || 'reader';
   return {
     id: supabaseUser.id,

@@ -15,10 +15,13 @@ export const RecommendationsTab: React.FC = () => {
   const [isFeatured, setIsFeatured] = useState(false);
 
   useEffect(() => {
-    setRecs(recommendationRepository.getAll());
-    if (novels.length > 0) {
-      setSelectedNovelId(novels[0].id);
-    }
+    const data = recommendationRepository.getAll();
+    setTimeout(() => {
+      setRecs(data);
+      if (novels.length > 0) {
+        setSelectedNovelId(novels[0].id);
+      }
+    }, 0);
   }, [novels]);
 
   const saveRecommendationsState = (updatedRecs: Recommendation[]) => {

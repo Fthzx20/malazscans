@@ -29,7 +29,7 @@ export async function PATCH(
     // 1. Detect [[Novel Name]] in text
     const mentionRegex = /\[\[(.+?)\]\]/g;
     const matches = Array.from(text.matchAll(mentionRegex));
-    const uniqueTitles = Array.from(new Set(matches.map((m: any) => m[1].trim())));
+    const uniqueTitles = Array.from(new Set(matches.map((m) => (m as RegExpExecArray)[1].trim())));
 
     const titleToNovel: Record<string, { id: string; title: string }> = {};
 
@@ -66,8 +66,15 @@ export async function PATCH(
       }
     }
 
+    interface CommentBlock {
+      type: 'text' | 'novel';
+      value?: string;
+      novelId?: string;
+      title?: string;
+    }
+
     // 2. Parse text into segment blocks
-    const blocks: any[] = [];
+    const blocks: CommentBlock[] = [];
     let lastIndex = 0;
     const blockRegex = /\[\[(.+?)\]\]/g;
     let match;

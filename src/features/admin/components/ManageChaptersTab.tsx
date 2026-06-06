@@ -120,7 +120,7 @@ export const ManageChaptersTab: React.FC<ManageChaptersTabProps> = ({ handleDele
               ) : (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-[#737373] font-bold">
-                    No chapters released for this novel. Click "Create Chapter" to write.
+                    No chapters released for this novel. Click &quot;Create Chapter&quot; to write.
                   </td>
                 </tr>
               )}

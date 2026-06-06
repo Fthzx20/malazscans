@@ -15,7 +15,9 @@ export const NotificationModal: React.FC = () => {
 
   // Set mounted true on client to avoid hydration mismatch
   useEffect(() => {
-    setMounted(true);
+    setTimeout(() => {
+      setMounted(true);
+    }, 0);
   }, []);
 
   // Check for active notifications after mount
@@ -30,7 +32,9 @@ export const NotificationModal: React.FC = () => {
       const isDismissed = sessionStorage.getItem(`notification_dismissed_${n.id}_${n.updatedAt}`) === 'true';
       return isPublished && isStarted && isNotEnded && !isDismissed;
     });
-    setActiveNotification(active || null);
+    setTimeout(() => {
+      setActiveNotification(active || null);
+    }, 0);
   }, [mounted]);
 
   const handleClose = () => {

@@ -29,7 +29,25 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const data: any = {};
+    const data: {
+      title?: string;
+      alternativeTitle?: string;
+      originalTitle?: string;
+      japaneseTitle?: string;
+      romajiTitle?: string;
+      author?: string;
+      illustrator?: string;
+      translator?: string;
+      publisher?: string;
+      synopsis?: string;
+      status?: string;
+      releaseSchedule?: string;
+      rating?: number;
+      coverImage?: string;
+      isRecommended?: boolean;
+      genres?: string[];
+      tags?: string[];
+    } = {};
 
     if (body.title !== undefined) data.title = body.title;
     if (body.alternativeTitle !== undefined) data.alternativeTitle = body.alternativeTitle;

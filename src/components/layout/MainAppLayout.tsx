@@ -48,7 +48,9 @@ export const MainAppLayout: React.FC = () => {
     initializeAuth();
     initializeSettings();
     initializeNovels();
-    setMounted(true);
+    setTimeout(() => {
+      setMounted(true);
+    }, 0);
   }, [initializeAuth, initializeSettings, initializeNovels]);
 
   // Restore state from Browser URL on initial mount

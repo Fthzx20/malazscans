@@ -109,7 +109,7 @@ export const ReaderToolbar: React.FC<ReaderToolbarProps> = ({ novel }) => {
                 ].map((t) => (
                   <button 
                     key={t.key}
-                    onClick={() => setReaderSettings({ theme: t.key as any })}
+                    onClick={() => setReaderSettings({ theme: t.key as 'light' | 'dark' | 'sepia' | 'amoled' })}
                     className={`flex-1 py-1 px-1.5 border text-[9px] font-mono cursor-pointer transition-colors bg-transparent ${readerSettings.theme === t.key ? 'border-[#FF3D00] text-[#FF3D00] bg-[#FF3D00]/10' : 'border-[#262626] text-current'}`}
                   >
                     {t.label}

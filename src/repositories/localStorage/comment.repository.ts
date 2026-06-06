@@ -9,20 +9,22 @@ import { Comment } from '../../types';
 const isClient = () => typeof window !== 'undefined';
 const STORAGE_KEY = 'kult_comments_prod';
 
-function sanitizeComment(c: any): Comment {
+function sanitizeComment(c: unknown): Comment {
+  const obj = c && typeof c === 'object' ? (c as Record<string, unknown>) : {};
+  const reactions = obj.reactions && typeof obj.reactions === 'object' ? (obj.reactions as Record<string, unknown>) : {};
   return {
-    id: c.id,
-    parentId: c.parentId,
-    chapterId: c.chapterId || '',
-    user: c.user || 'Anonymous',
-    text: c.text || '',
-    date: c.date || '',
-    isUserRegistered: !!c.isUserRegistered,
+    id: typeof obj.id === 'number' ? obj.id : 0,
+    parentId: typeof obj.parentId === 'number' ? obj.parentId : undefined,
+    chapterId: typeof obj.chapterId === 'string' ? obj.chapterId : '',
+    user: typeof obj.user === 'string' ? obj.user : 'Anonymous',
+    text: typeof obj.text === 'string' ? obj.text : '',
+    date: typeof obj.date === 'string' ? obj.date : '',
+    isUserRegistered: !!obj.isUserRegistered,
     reactions: {
-      likes: Array.isArray(c.reactions?.likes) ? c.reactions.likes : [],
-      hearts: Array.isArray(c.reactions?.hearts) ? c.reactions.hearts : []
+      likes: Array.isArray(reactions.likes) ? (reactions.likes as string[]) : [],
+      hearts: Array.isArray(reactions.hearts) ? (reactions.hearts as string[]) : []
     },
-    replies: Array.isArray(c.replies) ? c.replies.map(sanitizeComment) : []
+    replies: Array.isArray(obj.replies) ? obj.replies.map(sanitizeComment) : []
   };
 }
 

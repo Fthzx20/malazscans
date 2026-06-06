@@ -16,8 +16,22 @@ import { AnalyticsTab } from './AnalyticsTab';
 import { AdminSettingsTab } from './AdminSettingsTab';
 import { AnnouncementsTab } from './AnnouncementsTab';
 import { Chapter } from '../../../types';
+import { convertTextToTiptapJSON } from '../utils/editor';
 
-const NAV_GROUPS = [
+type AdminSubTab = 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements';
+
+interface NavItem {
+  key: AdminSubTab;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Content',
     items: [
@@ -84,7 +98,6 @@ export const AdminDashboard: React.FC = () => {
 
     let contentToSave = adminChapContent;
     if (!adminChapContent.trim().startsWith('{')) {
-      const { convertTextToTiptapJSON } = require('../utils/editor');
       contentToSave = JSON.stringify(convertTextToTiptapJSON(adminChapContent));
     }
 
@@ -199,7 +212,7 @@ export const AdminDashboard: React.FC = () => {
                             <button
                               key={item.key}
                               onClick={() => {
-                                setAdminActiveSubTab(item.key as any);
+                                setAdminActiveSubTab(item.key);
                                 setIsMobileNavOpen(false);
                               }}
                               className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-xs font-mono font-bold border-none cursor-pointer transition-all rounded-none ${
@@ -299,7 +312,7 @@ export const AdminDashboard: React.FC = () => {
                         return (
                           <button
                             key={item.key}
-                            onClick={() => setAdminActiveSubTab(item.key as any)}
+                            onClick={() => setAdminActiveSubTab(item.key)}
                             className={`w-full flex items-center ${
                               isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
                             } text-left text-xs font-mono font-bold border-none cursor-pointer transition-all rounded-none ${

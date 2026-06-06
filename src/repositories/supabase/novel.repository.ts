@@ -10,10 +10,50 @@ import { INovelRepository } from '../interfaces';
 import { Novel } from '../../types';
 import prisma from '../../lib/prisma';
 
+import { Prisma } from '@prisma/client';
+
+interface DbChapter {
+  id: string;
+  title: string;
+  publishDate: Date;
+  content: string;
+}
+
+interface DbVolume {
+  volumeNumber: number;
+  title: string;
+  chapters: DbChapter[];
+}
+
+interface DbNovel {
+  id: string;
+  title: string;
+  alternativeTitle: string | null;
+  originalTitle: string | null;
+  japaneseTitle: string | null;
+  romajiTitle: string | null;
+  author: string;
+  illustrator: string | null;
+  translator: string | null;
+  publisher: string | null;
+  synopsis: string | null;
+  status: string;
+  releaseSchedule: string | null;
+  addedDate: Date;
+  rating: number;
+  ratingCount: number;
+  views: number;
+  genres: string[];
+  tags: string[];
+  coverImage: string | null;
+  isRecommended: boolean;
+  volumes?: DbVolume[];
+}
+
 /**
  * Maps Prisma Novel (with volumes/chapters) to the app's Novel type.
  */
-function mapToNovel(dbNovel: any): Novel {
+function mapToNovel(dbNovel: DbNovel): Novel {
   return {
     id: dbNovel.id,
     title: dbNovel.title,
@@ -36,10 +76,10 @@ function mapToNovel(dbNovel: any): Novel {
     tags: dbNovel.tags || [],
     coverImage: dbNovel.coverImage || undefined,
     isRecommended: dbNovel.isRecommended || false,
-    volumes: (dbNovel.volumes || []).map((vol: any) => ({
+    volumes: (dbNovel.volumes || []).map((vol: DbVolume) => ({
       volumeNumber: vol.volumeNumber,
       title: vol.title,
-      chapters: (vol.chapters || []).map((ch: any) => ({
+      chapters: (vol.chapters || []).map((ch: DbChapter) => ({
         id: ch.id,
         title: ch.title,
         publishDate: ch.publishDate?.toISOString?.() || new Date().toISOString(),
@@ -146,7 +186,7 @@ export class SupabaseNovelRepository implements INovelRepository {
   }
 
   async updateAsync(id: string, data: Partial<Novel>): Promise<void> {
-    const updateData: any = {};
+    const updateData: Prisma.NovelUpdateInput = {};
     if (data.title !== undefined) updateData.title = data.title;
     if (data.synopsis !== undefined) updateData.synopsis = data.synopsis;
     if (data.status !== undefined) updateData.status = data.status;

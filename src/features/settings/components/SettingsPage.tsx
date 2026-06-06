@@ -244,7 +244,7 @@ export const SettingsPage: React.FC = () => {
               ].map(t => (
                 <button
                   key={t.key}
-                  onClick={() => setReaderSettings({ theme: t.key as any })}
+                  onClick={() => setReaderSettings({ theme: t.key as 'light' | 'dark' | 'sepia' | 'amoled' })}
                   className={`flex flex-col items-center justify-between p-3 border rounded-none cursor-pointer transition-all ${t.bg} ${t.text} ${
                     readerSettings.theme === t.key ? 'border-[#FF3D00] scale-[1.03] ring-1 ring-[#FF3D00]' : 'border-[#262626] opacity-80 hover:opacity-100'
                   }`}
