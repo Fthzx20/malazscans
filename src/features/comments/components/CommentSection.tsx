@@ -10,6 +10,7 @@ import { useComments } from '../hooks/useComments';
 import { NovelMentionInput } from '../../novels/components/NovelMentionInput';
 import { NovelMentionRenderer } from '../../novels/components/NovelMentionRenderer';
 import { commentSchema, CommentInput } from '../types';
+import { LinkPreviewCard } from '../../../components/links';
 import { Comment } from '../../../types';
 import { CONFIG } from '../../../config';
 
@@ -86,7 +87,35 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
 
   const sortedComments = sortComments(comments);
 
-  // Render text and parse @mentions & [[Novel Links]]
+  // Render text and parse @mentions, [[Novel Links]], and URLs
+  const formatTextWithUrls = (txt: string) => {
+    const urlRegex = /(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi;
+    const parts = txt.split(urlRegex);
+    const matches = [...txt.matchAll(urlRegex)];
+    
+    if (matches.length === 0) return txt;
+    
+    const result: React.ReactNode[] = [];
+    parts.forEach((part, idx) => {
+      result.push(part);
+      if (matches[idx]) {
+        const url = matches[idx][0].startsWith('http') ? matches[idx][0] : `https://${matches[idx][0]}`;
+        result.push(
+          <a
+            key={`url-${idx}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#FF3D00] hover:text-white underline underline-offset-2 transition-colors break-all"
+          >
+            {matches[idx][0]}
+          </a>
+        );
+      }
+    });
+    return <>{result}</>;
+  };
+
   const parseCommentText = (text: string) => {
     // Helper to highlight username mentions (@name)
     const formatTextWithUserMentions = (txt: string) => {
@@ -153,7 +182,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
         }
         return <span key={idx} className={`${themeStyles.accentText} font-mono`}>[[{title}]]</span>;
       }
-      return part;
+      return <span key={idx}>{formatTextWithUrls(part)}</span>;
     });
   };
 
@@ -242,9 +271,33 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
               </div>
             </form>
           ) : (
-            <p className="text-xs sm:text-sm text-current leading-relaxed break-words whitespace-pre-wrap">
-              {parseCommentText(comm.text)}
-            </p>
+            <>
+              <p className="text-xs sm:text-sm text-current leading-relaxed break-words whitespace-pre-wrap">
+                {(() => {
+                  // If comment has URLs, render text with URLs hidden (replaced by domain badge)
+                  const rawText = typeof comm.text === 'string' ? comm.text : '';
+                  const urlRegex = /(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi;
+                  const hasUrls = urlRegex.test(rawText);
+                  if (!hasUrls) return parseCommentText(rawText);
+                  // Strip URLs from display text, show clean text only
+                  const cleanText = rawText.replace(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi, '').replace(/\s{2,}/g, ' ').trim();
+                  return cleanText ? parseCommentText(cleanText) : null;
+                })()}
+              </p>
+              {/* Link preview cards for detected URLs */}
+              {(() => {
+                const rawText = typeof comm.text === 'string' ? comm.text : '';
+                const urls = rawText.match(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi);
+                if (!urls || urls.length === 0) return null;
+                return (
+                  <div className="mt-2 space-y-1.5">
+                    {urls.slice(0, 3).map((u, i) => (
+                      <LinkPreviewCard key={`${u}-${i}`} url={u.startsWith('http') ? u : `https://${u}`} size="medium" />
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
           )}
 
           {/* Action toolbar */}

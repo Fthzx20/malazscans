@@ -11,7 +11,7 @@ export const Providers: React.FC<{ children: React.ReactNode }> = ({ children })
     defaultOptions: {
       queries: {
         refetchOnWindowFocus: false,
-        staleTime: 1000 * 60 * 5 // 5 minutes
+        staleTime: 1000 * 60 * 5
       }
     }
   }));

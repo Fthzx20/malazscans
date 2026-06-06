@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 interface AdminState {
-  adminActiveSubTab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements';
+  adminActiveSubTab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users';
   editingNovelId: string | null;
   editingChapterId: string | null;
   activeEditorMode: 'create' | 'edit' | null;
@@ -32,7 +32,7 @@ interface AdminState {
   adminChapTitle: string;
   adminChapContent: string;
 
-  setAdminActiveSubTab: (tab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements') => void;
+  setAdminActiveSubTab: (tab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users') => void;
   setEditingNovelId: (id: string | null) => void;
   setEditingChapterId: (id: string | null) => void;
   setActiveEditorMode: (mode: 'create' | 'edit' | null) => void;

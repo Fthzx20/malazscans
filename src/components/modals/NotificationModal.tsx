@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { X, AlertCircle, Bell, ShieldAlert } from 'lucide-react';
-import { notificationRepository } from '../../repositories';
 import { Notification } from '../../types';
 import { useReaderStore } from '../../features/reader/store/readerStore';
 import { getThemeStyles } from '../../features/reader/utils/theme';
+import { LinkPreviewCard } from '../links';
 
 export const NotificationModal: React.FC = () => {
   const [mounted, setMounted] = useState(false);
@@ -21,21 +21,22 @@ export const NotificationModal: React.FC = () => {
     }, 0);
   }, []);
 
-  // Check for active notifications after mount
+  // Check for active notifications from API after mount
   useEffect(() => {
     if (!mounted) return;
-    const list = notificationRepository.getAll();
-    const today = new Date().toISOString().split('T')[0];
-    const active = list.find((n) => {
-      const isPublished = n.status === 'published';
-      const isStarted = n.startDate <= today;
-      const isNotEnded = n.endDate >= today;
-      const isDismissed = sessionStorage.getItem(`notification_dismissed_${n.id}_${n.updatedAt}`) === 'true';
-      return isPublished && isStarted && isNotEnded && !isDismissed;
-    });
-    setTimeout(() => {
-      setActiveNotification(active || null);
-    }, 0);
+    fetch('/api/announcements')
+      .then(res => res.ok ? res.json() : [])
+      .then((list: Notification[]) => {
+        const today = new Date().toISOString().split('T')[0];
+        const active = list.find((n) => {
+          const isDismissed = sessionStorage.getItem(`notification_dismissed_${n.id}_${n.updatedAt}`) === 'true';
+          return !isDismissed;
+        });
+        setTimeout(() => {
+          setActiveNotification(active || null);
+        }, 0);
+      })
+      .catch(() => {});
   }, [mounted]);
 
   const handleClose = useCallback(() => {
@@ -171,8 +172,25 @@ export const NotificationModal: React.FC = () => {
             id="notification-modal-content"
             className="text-xs sm:text-sm text-current/80 leading-relaxed whitespace-pre-line font-sans"
           >
-            {activeNotification.content}
+            {(() => {
+              const content = activeNotification.content;
+              const urlRegex = /(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi;
+              if (!urlRegex.test(content)) return content;
+              return content.replace(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi, '').replace(/\s{2,}/g, ' ').trim();
+            })()}
           </p>
+          {/* Link previews for URLs in announcement content */}
+          {(() => {
+            const urls = activeNotification.content.match(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi);
+            if (!urls || urls.length === 0) return null;
+            return (
+              <div className="space-y-2 mt-3">
+                {urls.slice(0, 3).map((u, i) => (
+                  <LinkPreviewCard key={`${u}-${i}`} url={u.startsWith('http') ? u : `https://${u}`} size="medium" />
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div className={`pt-4 flex justify-between items-center text-[10px] font-mono ${themeStyles.accentText} border-t ${themeStyles.border}`}>

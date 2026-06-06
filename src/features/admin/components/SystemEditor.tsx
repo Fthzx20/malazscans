@@ -34,6 +34,21 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetNovel = novels.find(n => n.id === selectedAdminNovelId);
 
+  // Helper: Upload file to R2 and return URL
+  const uploadImageToR2 = async (file: File): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', 'editor');
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      if (!res.ok) return null;
+      const { url } = await res.json();
+      return url;
+    } catch {
+      return null;
+    }
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -44,7 +59,7 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
       Underline,
       Image.configure({
         inline: false,
-        allowBase64: true,
+        allowBase64: true, // Keep true for backward compatibility with existing chapter content
       }),
       Placeholder.configure({
         placeholder: 'Start typing your manuscript here. Use formatting buttons above or paste/drag images directly into the sheet.',
@@ -93,14 +108,15 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
           const file = event.dataTransfer.files[0];
           if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
             if (file.size <= 10 * 1024 * 1024) {
-              const reader = new FileReader();
-              reader.onload = (readerEvent) => {
-                const base64 = readerEvent.target?.result as string;
-                view.dispatch(view.state.tr.replaceSelectionWith(
-                  view.state.schema.nodes.image.create({ src: base64, alt: file.name })
-                ));
-              };
-              reader.readAsDataURL(file);
+              uploadImageToR2(file).then((url) => {
+                if (url) {
+                  view.dispatch(view.state.tr.replaceSelectionWith(
+                    view.state.schema.nodes.image.create({ src: url, alt: file.name })
+                  ));
+                } else {
+                  triggerToast("Image upload failed. Check connection.");
+                }
+              });
               return true;
             } else {
               triggerToast("Image size must be less than 10MB.");
@@ -115,14 +131,15 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
           const file = event.clipboardData.files[0];
           if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
             if (file.size <= 10 * 1024 * 1024) {
-              const reader = new FileReader();
-              reader.onload = (readerEvent) => {
-                const base64 = readerEvent.target?.result as string;
-                view.dispatch(view.state.tr.replaceSelectionWith(
-                  view.state.schema.nodes.image.create({ src: base64, alt: 'Pasted Image' })
-                ));
-              };
-              reader.readAsDataURL(file);
+              uploadImageToR2(file).then((url) => {
+                if (url) {
+                  view.dispatch(view.state.tr.replaceSelectionWith(
+                    view.state.schema.nodes.image.create({ src: url, alt: 'Pasted Image' })
+                  ));
+                } else {
+                  triggerToast("Image upload failed. Check connection.");
+                }
+              });
               return true;
             } else {
               triggerToast("Image size must be less than 10MB.");
@@ -205,13 +222,14 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
         triggerToast("Image size must be less than 10MB.");
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (readerEvent) => {
-        const base64 = readerEvent.target?.result as string;
-        editor.chain().focus().setImage({ src: base64, alt: file.name }).run();
-        triggerToast("Image inserted into editor.");
-      };
-      reader.readAsDataURL(file);
+      uploadImageToR2(file).then((url) => {
+        if (url) {
+          editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+          triggerToast("Image uploaded and inserted.");
+        } else {
+          triggerToast("Image upload failed. Check connection.");
+        }
+      });
     }
   };
 

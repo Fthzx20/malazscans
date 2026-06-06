@@ -78,19 +78,41 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleSaveAccount = (e: React.FormEvent) => {
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !email.trim()) {
       triggerToast("Username and Email are required.");
       return;
     }
 
-    const updatedUser = currentUser 
-      ? { ...currentUser, username, email, avatar }
-      : { username, email, avatar };
-    
-    setCurrentUser(updatedUser);
-    triggerToast("Account settings updated successfully.");
+    // Persist to Supabase via API
+    try {
+      const res = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, avatar }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        triggerToast(data.error || "Failed to save profile.");
+        return;
+      }
+
+      const updatedUser = currentUser 
+        ? { ...currentUser, username, email, avatar }
+        : { username, email, avatar };
+      
+      setCurrentUser(updatedUser);
+      triggerToast("Profile saved to database.");
+    } catch {
+      // Fallback: save locally
+      const updatedUser = currentUser 
+        ? { ...currentUser, username, email, avatar }
+        : { username, email, avatar };
+      setCurrentUser(updatedUser);
+      triggerToast("Profile saved locally (offline mode).");
+    }
   };
 
   return (
@@ -486,14 +508,14 @@ export const SettingsPage: React.FC = () => {
             </form>
           </section>
 
-          {/* Account Security Info / Dummy */}
+          {/* Account Sync Info */}
           <section className={`border ${themeStyles.border} ${themeStyles.cardBg} p-6 mt-6 space-y-3`}>
             <div className="flex items-center gap-1.5 text-[#737373] font-mono text-[10px]">
               <Shield className="w-3.5 h-3.5 text-green-500" />
-              <span className="uppercase font-bold">Local Sync Status</span>
+              <span className="uppercase font-bold">Cloud Sync Active</span>
             </div>
             <p className="text-[10px] text-[#737373] leading-relaxed">
-              Your profile configurations are stored locally on this machine&apos;s IndexedDB / localStorage instances and will remain synced until local caches are wiped.
+              Your profile and avatar are stored in Supabase. Reader preferences (theme, font, spacing) are saved locally for instant loading.
             </p>
           </section>
         </div>

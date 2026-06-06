@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   ArrowLeft, LayoutDashboard, BookOpen, FileText, ListCollapse,
-  BarChart2, ShieldAlert, Bell, Plus, Menu, X, ChevronLeft, ChevronRight
+  BarChart2, ShieldAlert, Bell, Plus, Menu, X, ChevronLeft, ChevronRight, Users
 } from 'lucide-react';
 import { useNovelStore } from '../../novels/store/novelStore';
 import { useAdminStore } from '../store/adminStore';
@@ -15,10 +15,11 @@ import { RecommendationsTab } from './RecommendationsTab';
 import { AnalyticsTab } from './AnalyticsTab';
 import { AdminSettingsTab } from './AdminSettingsTab';
 import { AnnouncementsTab } from './AnnouncementsTab';
+import { UsersTab } from './UsersTab';
 import { Chapter } from '../../../types';
 import { convertTextToTiptapJSON } from '../utils/editor';
 
-type AdminSubTab = 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements';
+type AdminSubTab = 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users';
 
 interface NavItem {
   key: AdminSubTab;
@@ -45,6 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'recommendations', label: 'Recommendations', icon: ListCollapse },
       { key: 'announcements', label: 'Notifications', icon: Bell },
+      { key: 'users', label: 'Users', icon: Users },
     ]
   },
   {
@@ -157,6 +159,7 @@ export const AdminDashboard: React.FC = () => {
     announcements: 'Notifications',
     analytics: 'Analytics',
     settings: 'System Settings',
+    users: 'User Management',
   };
 
   React.useEffect(() => {
@@ -350,6 +353,7 @@ export const AdminDashboard: React.FC = () => {
                 {adminActiveSubTab === 'recommendations' && <RecommendationsTab />}
                 {adminActiveSubTab === 'announcements' && <AnnouncementsTab />}
                 {adminActiveSubTab === 'analytics' && <AnalyticsTab />}
+                {adminActiveSubTab === 'users' && <UsersTab />}
                 {adminActiveSubTab === 'settings' && <AdminSettingsTab />}
               </div>
             </main>

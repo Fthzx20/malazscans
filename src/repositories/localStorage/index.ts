@@ -1,4 +1,3 @@
-export { LocalStorageAuthRepository } from './auth.repository';
 export { LocalStorageNovelRepository } from './novel.repository';
 export { LocalStorageCommentRepository } from './comment.repository';
 export { LocalStorageLibraryRepository } from './library.repository';
