@@ -1,7 +1,6 @@
 /**
  * API Route: GET /api/admin/stats
  * Returns real-time statistics from Supabase Postgres.
- * Admin-only.
  */
 
 import { NextResponse } from 'next/server';
@@ -25,7 +24,6 @@ export async function GET() {
       totalBookmarks,
       totalReadingHistory,
       totalRecommendations,
-      activeAnnouncements,
       totalUsers,
     ] = await Promise.all([
       prisma.novel.count(),
@@ -37,18 +35,24 @@ export async function GET() {
       prisma.bookmark.count(),
       prisma.readingHistory.count(),
       prisma.recommendation.count(),
-      prisma.announcement.count({ where: { status: 'published', startDate: { lte: now }, endDate: { gte: now } } }),
       prisma.user.count(),
     ]);
+
+    // Active announcements (safe — won't crash if table empty)
+    let activeAnnouncements = 0;
+    try {
+      activeAnnouncements = await prisma.announcement.count({
+        where: { status: 'published', startDate: { lte: now }, endDate: { gte: now } },
+      });
+    } catch {
+      // Table may not have data yet
+    }
 
     // Activity metrics (time-based)
     const [
       commentsLast24h,
       commentsLast7d,
       commentsLast30d,
-      bookmarksLast24h,
-      bookmarksLast7d,
-      bookmarksLast30d,
       readingLast24h,
       readingLast7d,
       readingLast30d,
@@ -56,55 +60,35 @@ export async function GET() {
       prisma.comment.count({ where: { date: { gte: oneDayAgo } } }),
       prisma.comment.count({ where: { date: { gte: sevenDaysAgo } } }),
       prisma.comment.count({ where: { date: { gte: thirtyDaysAgo } } }),
-      prisma.bookmark.count({ where: { id: { not: undefined } } }), // bookmarks don't have timestamp yet
-      prisma.bookmark.count(),
-      prisma.bookmark.count(),
       prisma.readingHistory.count({ where: { timestamp: { gte: oneDayAgo } } }),
       prisma.readingHistory.count({ where: { timestamp: { gte: sevenDaysAgo } } }),
       prisma.readingHistory.count({ where: { timestamp: { gte: thirtyDaysAgo } } }),
     ]);
 
-    // Novel performance — most viewed
-    const topNovelByViews = await prisma.novel.findFirst({ orderBy: { views: 'desc' }, select: { id: true, title: true, views: true } });
-    const topNovelByRating = await prisma.novel.findFirst({ orderBy: { rating: 'desc' }, select: { id: true, title: true, rating: true } });
-
-    // Aggregated mentions count
-    const topMentions = await prisma.commentMention.groupBy({
-      by: ['novelId'],
-      _count: {
-        novelId: true
-      },
-      orderBy: {
-        _count: {
-          novelId: 'desc'
-        }
-      },
-      take: 10
+    // Novel performance
+    const topNovelByViews = await prisma.novel.findFirst({
+      orderBy: { views: 'desc' },
+      select: { id: true, title: true, views: true },
     });
-
-    const topMentionedNovels = await Promise.all(
-      topMentions.map(async (m) => {
-        const novel = await prisma.novel.findUnique({
-          where: { id: m.novelId },
-          select: { title: true }
-        });
-        return {
-          title: novel?.title || m.novelId,
-          count: m._count.novelId
-        };
-      })
-    );
+    const topNovelByRating = await prisma.novel.findFirst({
+      orderBy: { rating: 'desc' },
+      select: { id: true, title: true, rating: true },
+    });
 
     // Average rating
     const ratingAgg = await prisma.novel.aggregate({ _avg: { rating: true } });
 
-    // Total word count (approximate from chapter content length)
-    const chapters = await prisma.chapter.findMany({ select: { content: true } });
+    // Total word count (approximate)
     let totalWords = 0;
-    chapters.forEach((ch) => {
-      const raw = ch.content.replace(/<[^>]*>/g, '').replace(/\{[^}]*\}/g, '');
-      totalWords += raw.trim().split(/\s+/).filter((w) => w.length > 0).length;
-    });
+    try {
+      const chapters = await prisma.chapter.findMany({ select: { content: true } });
+      chapters.forEach((ch) => {
+        const raw = ch.content.replace(/<[^>]*>/g, '').replace(/\{[^}]*\}/g, '').replace(/\\n/g, ' ');
+        totalWords += raw.trim().split(/\s+/).filter((w) => w.length > 0).length;
+      });
+    } catch {
+      // Non-fatal
+    }
 
     return NextResponse.json({
       content: {
@@ -125,14 +109,13 @@ export async function GET() {
         activeAnnouncements,
       },
       activity: {
-        last24h: { comments: commentsLast24h, bookmarks: bookmarksLast24h, readingSessions: readingLast24h },
-        last7d: { comments: commentsLast7d, bookmarks: bookmarksLast7d, readingSessions: readingLast7d },
-        last30d: { comments: commentsLast30d, bookmarks: bookmarksLast30d, readingSessions: readingLast30d },
+        last24h: { comments: commentsLast24h, bookmarks: totalBookmarks, readingSessions: readingLast24h },
+        last7d: { comments: commentsLast7d, bookmarks: totalBookmarks, readingSessions: readingLast7d },
+        last30d: { comments: commentsLast30d, bookmarks: totalBookmarks, readingSessions: readingLast30d },
       },
       topPerformers: {
         mostViewed: topNovelByViews ? { title: topNovelByViews.title, views: topNovelByViews.views } : null,
         highestRated: topNovelByRating ? { title: topNovelByRating.title, rating: topNovelByRating.rating } : null,
-        mostMentioned: topMentionedNovels,
       },
     });
   } catch (error) {
