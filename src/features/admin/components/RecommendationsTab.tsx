@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, ArrowUp, ArrowDown, Trash2, Star, Bookmark } from 'lucide-react';
 import { useNovelStore } from '../../novels/store/novelStore';
-import { recommendationRepository } from '../../../repositories';
 import { Recommendation } from '../../../types';
 
 export const RecommendationsTab: React.FC = () => {
@@ -14,26 +13,41 @@ export const RecommendationsTab: React.FC = () => {
   const [isPinned, setIsPinned] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
 
+  // Fetch recommendations from API
   useEffect(() => {
-    const data = recommendationRepository.getAll();
-    setTimeout(() => {
-      setRecs(data);
-      if (novels.length > 0) {
-        setSelectedNovelId(novels[0].id);
-      }
-    }, 0);
+    fetch('/api/recommendations')
+      .then(res => res.ok ? res.json() : [])
+      .then((data: Recommendation[]) => {
+        setRecs(data.sort((a, b) => a.order - b.order));
+        if (novels.length > 0 && !selectedNovelId) {
+          setSelectedNovelId(novels[0].id);
+        }
+      })
+      .catch(() => {});
   }, [novels]);
 
-  const saveRecommendationsState = (updatedRecs: Recommendation[]) => {
+  const saveRecommendationsToAPI = async (updatedRecs: Recommendation[]) => {
     setRecs(updatedRecs);
-    recommendationRepository.save(updatedRecs);
+    try {
+      await fetch('/api/admin/recommendations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedRecs.map(r => ({
+          novelId: r.novelId,
+          order: r.order,
+          isPinned: r.isPinned,
+          isFeatured: r.isFeatured,
+        }))),
+      });
+    } catch {
+      triggerToast('Failed to save recommendations.');
+    }
   };
 
-  const handleAddRec = (e: React.FormEvent) => {
+  const handleAddRec = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedNovelId) return;
 
-    // Check if already recommended
     if (recs.find(r => r.novelId === selectedNovelId)) {
       triggerToast("This novel is already recommended.");
       return;
@@ -49,49 +63,47 @@ export const RecommendationsTab: React.FC = () => {
     };
 
     const updated = [...recs, newRec];
-    saveRecommendationsState(updated);
+    await saveRecommendationsToAPI(updated);
     triggerToast("Recommendation added successfully.");
     setIsPinned(false);
     setIsFeatured(false);
   };
 
-  const handleRemoveRec = (id: string) => {
+  const handleRemoveRec = async (id: string) => {
     const updated = recs.filter(r => r.id !== id).map((r, idx) => ({
       ...r,
-      order: idx + 1 // Re-normalize order
+      order: idx + 1
     }));
-    saveRecommendationsState(updated);
+    await saveRecommendationsToAPI(updated);
     triggerToast("Recommendation removed.");
   };
 
-  const handleMoveOrder = (index: number, direction: 'up' | 'down') => {
+  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === recs.length - 1) return;
 
     const swapWith = direction === 'up' ? index - 1 : index + 1;
     const updated = [...recs];
     
-    // Swap order numbers
     const tempOrder = updated[index].order;
     updated[index].order = updated[swapWith].order;
     updated[swapWith].order = tempOrder;
 
-    // Swap elements in list
     const tempItem = updated[index];
     updated[index] = updated[swapWith];
     updated[swapWith] = tempItem;
 
-    saveRecommendationsState(updated);
+    await saveRecommendationsToAPI(updated);
   };
 
-  const handleToggleFlag = (id: string, field: 'isPinned' | 'isFeatured') => {
+  const handleToggleFlag = async (id: string, field: 'isPinned' | 'isFeatured') => {
     const updated = recs.map(r => {
       if (r.id === id) {
         return { ...r, [field]: !r[field] };
       }
       return r;
     });
-    saveRecommendationsState(updated);
+    await saveRecommendationsToAPI(updated);
   };
 
   return (

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Bell, CheckCircle, XCircle } from 'lucide-react';
 import { useNovelStore } from '../../novels/store/novelStore';
-import { notificationRepository } from '../../../repositories';
 import { Notification } from '../../../types';
 
 export const AnnouncementsTab: React.FC = () => {
@@ -23,15 +22,15 @@ export const AnnouncementsTab: React.FC = () => {
   const [createdAt, setCreatedAt] = useState('');
 
   useEffect(() => {
-    const data = notificationRepository.getAll();
-    setTimeout(() => {
-      setNotifications(data);
-    }, 0);
+    fetch('/api/admin/announcements')
+      .then(res => res.ok ? res.json() : [])
+      .then((data: Notification[]) => setNotifications(data))
+      .catch(() => {});
   }, []);
 
-  const saveNotificationsState = (updatedList: Notification[]) => {
-    setNotifications(updatedList);
-    notificationRepository.save(updatedList);
+  const refreshAnnouncements = async () => {
+    const res = await fetch('/api/admin/announcements');
+    if (res.ok) setNotifications(await res.json());
   };
 
   const resetForm = () => {
@@ -47,56 +46,36 @@ export const AnnouncementsTab: React.FC = () => {
     setCreatedAt('');
   };
 
-  const handleSaveNotification = (e: React.FormEvent) => {
+  const handleSaveNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
       triggerToast("Title and Content are required.");
       return;
     }
 
-    const nowStr = new Date().toISOString();
-
-    if (editingId) {
-      // Edit
-      const updated = notifications.map((n) => {
-        if (n.id === editingId) {
-          return {
-            ...n,
-            title,
-            content,
-            status,
-            priority,
-            autoClose,
-            autoCloseSeconds: Number(autoCloseSeconds),
-            startDate,
-            endDate,
-            updatedAt: nowStr,
-          };
-        }
-        return n;
-      });
-      saveNotificationsState(updated);
-      triggerToast("Notification updated successfully.");
-    } else {
-      // Create
-      const newNotification: Notification = {
-        id: `notification-${Date.now()}`,
-        title,
-        content,
-        status,
-        priority,
-        autoClose,
-        autoCloseSeconds: Number(autoCloseSeconds),
-        startDate,
-        endDate,
-        createdAt: nowStr,
-        updatedAt: nowStr,
-      };
-      const updated = [newNotification, ...notifications];
-      saveNotificationsState(updated);
-      triggerToast("Notification created successfully.");
+    try {
+      if (editingId) {
+        const res = await fetch(`/api/admin/announcements/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, status, priority, startDate, endDate, autoClose, autoCloseSeconds: Number(autoCloseSeconds) }),
+        });
+        if (!res.ok) { triggerToast("Failed to update."); return; }
+        triggerToast("Notification updated successfully.");
+      } else {
+        const res = await fetch('/api/admin/announcements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, content, status, priority, startDate, endDate, autoClose, autoCloseSeconds: Number(autoCloseSeconds) }),
+        });
+        if (!res.ok) { triggerToast("Failed to create."); return; }
+        triggerToast("Notification created successfully.");
+      }
+      await refreshAnnouncements();
+      resetForm();
+    } catch {
+      triggerToast("Operation failed. Check connection.");
     }
-    resetForm();
   };
 
   const handleEditClick = (n: Notification) => {
@@ -112,29 +91,34 @@ export const AnnouncementsTab: React.FC = () => {
     setCreatedAt(n.createdAt);
   };
 
-  const handleDeleteNotification = (id: string) => {
+  const handleDeleteNotification = async (id: string) => {
     if (confirm("Are you sure you want to delete this notification?")) {
-      const updated = notifications.filter((n) => n.id !== id);
-      saveNotificationsState(updated);
-      triggerToast("Notification deleted.");
-      if (editingId === id) resetForm();
+      try {
+        await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+        await refreshAnnouncements();
+        triggerToast("Notification deleted.");
+        if (editingId === id) resetForm();
+      } catch {
+        triggerToast("Failed to delete.");
+      }
     }
   };
 
-  const toggleStatus = (id: string) => {
-    const updated = notifications.map((n) => {
-      if (n.id === id) {
-        const nextStatus: 'draft' | 'published' = n.status === 'published' ? 'draft' : 'published';
-        triggerToast(`Notification ${nextStatus === 'published' ? 'published' : 'saved as draft'}.`);
-        return {
-          ...n,
-          status: nextStatus,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-      return n;
-    });
-    saveNotificationsState(updated);
+  const toggleStatus = async (id: string) => {
+    const target = notifications.find(n => n.id === id);
+    if (!target) return;
+    const nextStatus = target.status === 'published' ? 'draft' : 'published';
+    try {
+      await fetch(`/api/admin/announcements/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      await refreshAnnouncements();
+      triggerToast(`Notification ${nextStatus === 'published' ? 'published' : 'saved as draft'}.`);
+    } catch {
+      triggerToast("Failed to toggle status.");
+    }
   };
 
   return (

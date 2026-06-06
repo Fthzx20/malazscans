@@ -96,10 +96,10 @@ export const AdminSettingsTab: React.FC = () => {
               <div>ORM: <span className="text-[#FF3D00] font-bold">Prisma Client</span></div>
             </div>
             <button
-              onClick={() => triggerToast("Prisma schema schema.prisma is prepared in code models.")}
+              onClick={() => triggerToast("Database schema is managed via Prisma. Run 'npx prisma db push' to sync.")}
               className="border border-[#737373] hover:border-white text-white py-2.5 px-4 font-mono text-[10px] uppercase font-bold bg-transparent cursor-pointer"
             >
-              Export Schema Mock
+              View Schema Info
             </button>
           </div>
         </div>

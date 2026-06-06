@@ -26,8 +26,6 @@ export const NovelCard: React.FC<NovelCardProps> = ({ novel, variant }) => {
   };
 
   const isBookmarked = bookmarks.includes(novel.id);
-  const baseBookmarks = Math.floor(parseInt(novel.views.replace(/[^0-9]/g, '')) / 15) || 42;
-  const bookmarkCount = baseBookmarks + (isBookmarked ? 1 : 0);
 
   const flatChaps = getFlatChapters(novel);
   const latestChapter = flatChaps.length > 0 ? flatChaps[flatChaps.length - 1].title : 'No chapters';
@@ -56,7 +54,7 @@ export const NovelCard: React.FC<NovelCardProps> = ({ novel, variant }) => {
           <div>
             <div className={`flex items-center justify-between text-[9px] ${themeStyles.accentText} font-mono mb-1`}>
               <span>★ {novel.rating}</span>
-              <span>{bookmarkCount} bookmarks</span>
+              <span>{novel.views} views</span>
             </div>
             <h4 className="text-sm font-extrabold text-current line-clamp-1 uppercase">{novel.title}</h4>
             <p className={`text-xs ${themeStyles.accentText} font-serif italic line-clamp-1`}>{novel.alternativeTitle}</p>
@@ -90,7 +88,7 @@ export const NovelCard: React.FC<NovelCardProps> = ({ novel, variant }) => {
         <div className="space-y-1 flex-grow">
           <div className="flex justify-between items-center">
             <span className="text-[9px] font-mono text-[#FF3D00] tracking-widest block uppercase font-bold">{novel.author}</span>
-            <span className={`text-[9px] font-mono ${themeStyles.accentText}`}>★ {novel.rating} ({bookmarkCount} saved)</span>
+            <span className={`text-[9px] font-mono ${themeStyles.accentText}`}>★ {novel.rating} ({novel.views} views)</span>
           </div>
           <h4 className="text-sm font-black text-current line-clamp-1 uppercase">{novel.title}</h4>
           <p className={`text-xs ${themeStyles.accentText} italic font-serif line-clamp-1`}>{novel.alternativeTitle}</p>
@@ -123,7 +121,7 @@ export const NovelCard: React.FC<NovelCardProps> = ({ novel, variant }) => {
           <p className={`text-xs ${themeStyles.accentText} line-clamp-2 mt-1`}>{novel.synopsis}</p>
         </div>
         <div className={`pt-2 flex justify-between items-center text-[10px] font-mono ${themeStyles.accentText}`}>
-          <span>By {novel.author} &bull; ★ {novel.rating} ({bookmarkCount} bookmarks)</span>
+          <span>By {novel.author} &bull; ★ {novel.rating} ({novel.views} views)</span>
           <span className="text-[#FF3D00] font-black uppercase">READ &rarr;</span>
         </div>
       </div>

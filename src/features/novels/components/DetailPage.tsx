@@ -32,6 +32,14 @@ export const DetailPage: React.FC = () => {
         setUserRating(null);
       }
     }, 0);
+
+    // Track view (fire-and-forget, once per session per novel)
+    const viewKey = `viewed_${selectedNovel.id}`;
+    if (!sessionStorage.getItem(viewKey)) {
+      fetch(`/api/novels/${selectedNovel.id}/view`, { method: 'POST' }).catch(() => {});
+      sessionStorage.setItem(viewKey, '1');
+    }
+
     return () => clearTimeout(timer);
   }, [selectedNovel?.id]);
 

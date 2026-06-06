@@ -56,7 +56,7 @@ export const ManageNovelsTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ONGOING' | 'COMPLETED'>('ALL');
 
-  const handleAddOrUpdateNovel = (e: React.FormEvent) => {
+  const handleAddOrUpdateNovel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adminNovelTitle.trim() || !adminNovelAlt.trim() || !adminNovelAuthor.trim() || !adminNovelTranslator.trim()) {
       triggerToast('Main Title, Alternative Title, Author, and Translator are required.');
@@ -67,10 +67,12 @@ export const ManageNovelsTab: React.FC = () => {
     const tagList = adminNovelTags.split(',').map(s => s.trim()).filter(Boolean);
 
     if (editingNovelId) {
-      const updated = novels.map((n) => {
-        if (n.id === editingNovelId) {
-          return {
-            ...n,
+      // UPDATE existing novel via API
+      try {
+        const res = await fetch(`/api/admin/novels/${editingNovelId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             title: adminNovelTitle,
             alternativeTitle: adminNovelAlt,
             originalTitle: adminNovelOriginalTitle,
@@ -87,43 +89,73 @@ export const ManageNovelsTab: React.FC = () => {
             isRecommended: adminNovelIsRecommended,
             synopsis: adminNovelSynopsis,
             coverImage: adminNovelCoverImage,
-          };
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          triggerToast(data.error || 'Failed to update novel.');
+          return;
         }
-        return n;
-      });
-      setNovels(updated);
-      triggerToast('Novel updated successfully.');
+        // Refresh novels from API
+        const novelsRes = await fetch('/api/novels');
+        if (novelsRes.ok) {
+          const freshNovels = await novelsRes.json();
+          setNovels(freshNovels);
+        }
+        triggerToast('Novel updated successfully.');
+      } catch {
+        triggerToast('Failed to update novel. Check connection.');
+        return;
+      }
     } else {
-      const uniqueId = adminNovelTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      // CREATE new novel via API
+      const uniqueId = adminNovelTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
       if (novels.find((n) => n.id === uniqueId)) {
         triggerToast('A novel with this title already exists.');
         return;
       }
-      const newNovel: Novel = {
-        id: uniqueId,
-        title: adminNovelTitle,
-        alternativeTitle: adminNovelAlt,
-        originalTitle: adminNovelOriginalTitle,
-        japaneseTitle: adminNovelJapaneseTitle,
-        romajiTitle: adminNovelRomajiTitle,
-        author: adminNovelAuthor,
-        illustrator: adminNovelIllustrator,
-        translator: adminNovelTranslator,
-        publisher: adminNovelPublisher,
-        genres: genreList,
-        tags: tagList,
-        status: adminNovelStatus,
-        releaseSchedule: adminNovelSchedule,
-        addedDate: new Date().toISOString().split('T')[0],
-        rating: '4.8',
-        views: '1,200',
-        isRecommended: adminNovelIsRecommended,
-        synopsis: adminNovelSynopsis,
-        coverImage: adminNovelCoverImage,
-        volumes: [{ volumeNumber: 1, title: 'Volume 01: Opening Session', chapters: [] }],
-      };
-      setNovels([newNovel, ...novels]);
-      triggerToast('Novel registered successfully.');
+
+      try {
+        const res = await fetch('/api/admin/novels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: uniqueId,
+            title: adminNovelTitle,
+            alternativeTitle: adminNovelAlt,
+            originalTitle: adminNovelOriginalTitle,
+            japaneseTitle: adminNovelJapaneseTitle,
+            romajiTitle: adminNovelRomajiTitle,
+            author: adminNovelAuthor,
+            illustrator: adminNovelIllustrator,
+            translator: adminNovelTranslator,
+            publisher: adminNovelPublisher,
+            genres: genreList,
+            tags: tagList,
+            status: adminNovelStatus,
+            releaseSchedule: adminNovelSchedule,
+            isRecommended: adminNovelIsRecommended,
+            synopsis: adminNovelSynopsis,
+            coverImage: adminNovelCoverImage,
+            volumes: [{ volumeNumber: 1, title: 'Volume 01: Opening Session', chapters: [] }],
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          triggerToast(data.error || 'Failed to create novel.');
+          return;
+        }
+        // Refresh novels from API
+        const novelsRes = await fetch('/api/novels');
+        if (novelsRes.ok) {
+          const freshNovels = await novelsRes.json();
+          setNovels(freshNovels);
+        }
+        triggerToast('Novel registered successfully.');
+      } catch {
+        triggerToast('Failed to create novel. Check connection.');
+        return;
+      }
     }
     resetNovelForm();
   };
@@ -149,12 +181,25 @@ export const ManageNovelsTab: React.FC = () => {
     setIsNovelDrawerOpen(true);
   };
 
-  const handleDeleteNovelClick = (novelId: string) => {
+  const handleDeleteNovelClick = async (novelId: string) => {
     if (confirm('Are you sure you want to delete this novel and all of its volumes/chapters?')) {
-      const updated = novels.filter((n) => n.id !== novelId);
-      setNovels(updated);
-      triggerToast('Novel removed from database.');
-      if (editingNovelId === novelId) resetNovelForm();
+      try {
+        const res = await fetch(`/api/admin/novels/${novelId}`, { method: 'DELETE' });
+        if (!res.ok) {
+          triggerToast('Failed to delete novel.');
+          return;
+        }
+        // Refresh from API
+        const novelsRes = await fetch('/api/novels');
+        if (novelsRes.ok) {
+          const freshNovels = await novelsRes.json();
+          setNovels(freshNovels);
+        }
+        triggerToast('Novel deleted from database.');
+        if (editingNovelId === novelId) resetNovelForm();
+      } catch {
+        triggerToast('Failed to delete novel. Check connection.');
+      }
     }
   };
 

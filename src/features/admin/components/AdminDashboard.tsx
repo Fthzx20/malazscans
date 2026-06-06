@@ -82,72 +82,88 @@ export const AdminDashboard: React.FC = () => {
     setIsMobileNavOpen,
   } = useAdminStore();
 
-  const handleSaveChapter = () => {
+  const handleSaveChapter = async () => {
     if (!adminChapTitle.trim() || !adminChapContent.trim()) {
       triggerToast('Please fill in the title and content of the chapter.');
       return;
     }
 
-    const targetNovelIndex = novels.findIndex((n) => n.id === selectedAdminNovelId);
-    if (targetNovelIndex === -1) {
+    if (!selectedAdminNovelId) {
       triggerToast('Target novel not found.');
       return;
     }
-
-    const updated = [...novels];
-    const targetNovel = updated[targetNovelIndex];
-    const targetVolume = targetNovel.volumes[0];
 
     let contentToSave = adminChapContent;
     if (!adminChapContent.trim().startsWith('{')) {
       contentToSave = JSON.stringify(convertTextToTiptapJSON(adminChapContent));
     }
 
-    if (activeEditorMode === 'create') {
-      const newChapterId = `${targetNovel.id}-v1-c${targetVolume.chapters.length + 1}`;
-      const newChapter: Chapter = {
-        id: newChapterId,
-        title: `Chapter ${targetVolume.chapters.length + 1}: ${adminChapTitle}`,
-        publishDate: new Date().toISOString(),
-        content: contentToSave,
-      };
-      targetVolume.chapters.push(newChapter);
-      triggerToast('Chapter published successfully.');
-    } else if (activeEditorMode === 'edit' && editingChapterId) {
-      targetVolume.chapters = targetVolume.chapters.map((c) => {
-        if (c.id === editingChapterId) {
-          const prefixMatch = c.title.match(/^Chapter \d+:/);
-          const prefix = prefixMatch ? prefixMatch[0] : '';
-          return {
-            ...c,
-            title: prefix ? `${prefix} ${adminChapTitle}` : adminChapTitle,
-            content: contentToSave,
-          };
+    try {
+      if (activeEditorMode === 'create') {
+        // Find current chapter count for ID generation
+        const targetNovel = novels.find(n => n.id === selectedAdminNovelId);
+        const chapCount = targetNovel?.volumes?.[0]?.chapters?.length || 0;
+        const newChapterId = `${selectedAdminNovelId}-v1-c${chapCount + 1}`;
+        const chapterTitle = `Chapter ${chapCount + 1}: ${adminChapTitle}`;
+
+        const res = await fetch(`/api/admin/novels/${selectedAdminNovelId}/chapters`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: newChapterId, title: chapterTitle, content: contentToSave }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          triggerToast(data.error || 'Failed to create chapter.');
+          return;
         }
-        return c;
-      });
-      triggerToast('Chapter updates saved successfully.');
+        triggerToast('Chapter published successfully.');
+      } else if (activeEditorMode === 'edit' && editingChapterId) {
+        const res = await fetch(`/api/admin/chapters/${editingChapterId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: adminChapTitle, content: contentToSave }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          triggerToast(data.error || 'Failed to update chapter.');
+          return;
+        }
+        triggerToast('Chapter updated successfully.');
+      }
+
+      // Refresh novels from API
+      const novelsRes = await fetch('/api/novels');
+      if (novelsRes.ok) {
+        const freshNovels = await novelsRes.json();
+        setNovels(freshNovels);
+      }
+    } catch {
+      triggerToast('Failed to save chapter. Check connection.');
+      return;
     }
 
-    setNovels(updated);
     resetChapterForm();
     setActiveEditorMode(null);
   };
 
-  const handleDeleteChapter = (chapterId: string) => {
+  const handleDeleteChapter = async (chapterId: string) => {
     if (confirm('Are you sure you want to delete this chapter?')) {
-      const updated = novels.map((n) => {
-        if (n.id === selectedAdminNovelId) {
-          const vol = n.volumes[0];
-          return {
-            ...n,
-            volumes: [{ ...vol, chapters: vol.chapters.filter((c) => c.id !== chapterId) }],
-          };
+      try {
+        const res = await fetch(`/api/admin/chapters/${chapterId}`, { method: 'DELETE' });
+        if (!res.ok) {
+          triggerToast('Failed to delete chapter.');
+          return;
         }
-        return n;
-      });
-      setNovels(updated);
-      triggerToast('Chapter deleted successfully.');
+        // Refresh novels from API
+        const novelsRes = await fetch('/api/novels');
+        if (novelsRes.ok) {
+          const freshNovels = await novelsRes.json();
+          setNovels(freshNovels);
+        }
+        triggerToast('Chapter deleted successfully.');
+      } catch {
+        triggerToast('Failed to delete chapter. Check connection.');
+      }
     }
   };
 
