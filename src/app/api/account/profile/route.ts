@@ -24,7 +24,7 @@ export async function GET() {
   }
 
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: authUser.id },
       select: {
         id: true,
@@ -39,18 +39,27 @@ export async function GET() {
     });
 
     if (!user) {
-      // User exists in Supabase Auth but not in DB — create profile
-      const newUser = await prisma.user.create({
+      // User exists in Supabase Auth but not in DB — create profile row
+      user = await prisma.user.create({
         data: {
           id: authUser.id,
           username: authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'User',
           email: authUser.email!,
-          password: '', // Auth handled by Supabase
+          password: '',
           avatar: authUser.user_metadata?.avatar || null,
           role: authUser.user_metadata?.role || 'user',
         },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          avatar: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          lastLoginAt: true,
+        },
       });
-      return NextResponse.json(newUser);
     }
 
     return NextResponse.json(user);
@@ -68,35 +77,56 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json();
-    const data: any = {};
+    const updateData: Record<string, unknown> = {};
 
-    if (body.username !== undefined) data.username = body.username;
-    if (body.avatar !== undefined) data.avatar = body.avatar;
+    // Validate username if provided
+    if (body.username !== undefined) {
+      const trimmed = body.username.trim();
+      if (!trimmed || trimmed.length < 2) {
+        return NextResponse.json({ error: 'Username must be at least 2 characters.' }, { status: 400 });
+      }
+      if (trimmed.length > 30) {
+        return NextResponse.json({ error: 'Username must be 30 characters or less.' }, { status: 400 });
+      }
 
-    // Upsert: create if not exists
+      // Check uniqueness (skip if same user)
+      const existing = await prisma.user.findUnique({ where: { username: trimmed } });
+      if (existing && existing.id !== authUser.id) {
+        return NextResponse.json({ error: 'Username is already taken.' }, { status: 409 });
+      }
+
+      updateData.username = trimmed;
+    }
+
+    if (body.avatar !== undefined) {
+      updateData.avatar = body.avatar || null;
+    }
+
+    // Upsert: if user row doesn't exist yet, create it
     const user = await prisma.user.upsert({
       where: { id: authUser.id },
-      update: data,
+      update: updateData,
       create: {
         id: authUser.id,
-        username: body.username || authUser.user_metadata?.username || 'User',
+        username: (updateData.username as string) || authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'User',
         email: authUser.email!,
         password: '',
-        avatar: body.avatar || null,
+        avatar: (updateData.avatar as string) || null,
         role: authUser.user_metadata?.role || 'user',
       },
     });
 
-    // Also sync avatar to Supabase Auth metadata
-    if (body.avatar !== undefined) {
-      try {
-        const supabase = await createServerSupabaseClient();
-        await supabase.auth.updateUser({
-          data: { avatar: body.avatar, username: body.username || user.username },
-        });
-      } catch {
-        // Non-fatal
-      }
+    // Sync username and avatar to Supabase Auth metadata
+    try {
+      const supabase = await createServerSupabaseClient();
+      await supabase.auth.updateUser({
+        data: {
+          username: user.username,
+          avatar: user.avatar,
+        },
+      });
+    } catch {
+      // Non-fatal — DB is the source of truth
     }
 
     return NextResponse.json({
@@ -105,7 +135,11 @@ export async function PATCH(request: Request) {
       email: user.email,
       avatar: user.avatar,
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Handle Prisma unique constraint violation
+    if (error?.code === 'P2002' && error?.meta?.target?.includes('username')) {
+      return NextResponse.json({ error: 'Username is already taken.' }, { status: 409 });
+    }
     console.error('Failed to update profile:', error);
     return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
   }
