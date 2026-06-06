@@ -1,0 +1,258 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================
+// AUTH — maps to Supabase Auth + custom profile data
+// ============================================================
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  role      String   @default("reader") // "admin" | "reader"
+  avatar    String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookmarks      Bookmark[]
+  readingHistory ReadingHistory[]
+  comments       Comment[]
+
+  @@index([email])
+}
+
+// ============================================================
+// CONTENT — novels, volumes, chapters
+// ============================================================
+model Novel {
+  id               String         @id // slug-based ID (e.g. "red-sunset")
+  title            String
+  alternativeTitle String         @default("")
+  originalTitle    String         @default("")
+  japaneseTitle    String         @default("")
+  romajiTitle      String         @default("")
+  author           String
+  illustrator      String         @default("")
+  translator       String         @default("")
+  publisher        String         @default("")
+  synopsis         String         @default("")
+  status           String         @default("ONGOING") // "ONGOING" | "COMPLETED" | "HIATUS"
+  releaseSchedule  String         @default("")
+  addedDate        DateTime       @default(now())
+  rating           Float          @default(0)
+  ratingCount      Int            @default(0)
+  views            Int            @default(0)
+  genres           String[]
+  tags             String[]
+  coverImage       String?        // URL to R2 or external
+  isRecommended    Boolean        @default(false)
+  volumes          Volume[]
+  recommendations  Recommendation[]
+  bookmarks        Bookmark[]
+  ratings          NovelRating[]
+  commentMentions  CommentMention[]
+
+  @@index([status])
+  @@index([addedDate])
+}
+
+model Volume {
+  id           String    @id @default(uuid())
+  volumeNumber Int
+  title        String
+  novelId      String
+  novel        Novel     @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  chapters     Chapter[]
+
+  @@index([novelId])
+}
+
+model Chapter {
+  id            String         @id // e.g. "rs-v1-c1"
+  title         String
+  publishDate   DateTime       @default(now())
+  content       String         // Tiptap JSON or legacy text
+  volumeId      String
+  volume        Volume         @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+  comments      Comment[]
+  illustrations Illustration[]
+
+  @@index([volumeId])
+  @@index([publishDate])
+}
+
+// ============================================================
+// MEDIA
+// ============================================================
+model Illustration {
+  id        String  @id @default(uuid())
+  url       String  // URL to R2
+  width     Int
+  height    Int
+  alt       String  @default("")
+  chapterId String
+  chapter   Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([chapterId])
+}
+
+// ============================================================
+// ENGAGEMENT — comments, reactions, mentions
+// ============================================================
+model Comment {
+  id               Int       @id @default(autoincrement())
+  parentId         Int?
+  parent           Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Comment[] @relation("CommentReplies")
+  chapterId        String
+  chapter          Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username         String    // denormalized for display (guest or registered)
+  text             String
+  date             DateTime  @default(now())
+  isUserRegistered Boolean   @default(false)
+  reactions        Reaction[]
+  mentions         Mention[]
+  commentMentions  CommentMention[]
+
+  @@index([chapterId])
+  @@index([parentId])
+  @@index([userId])
+}
+
+model Reaction {
+  id        String  @id @default(uuid())
+  type      String  // "like" | "heart"
+  username  String
+  commentId Int
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([type, username, commentId]) // prevent duplicate reactions
+  @@index([commentId])
+}
+
+model Mention {
+  id        String  @id @default(uuid())
+  username  String
+  commentId Int
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([commentId])
+}
+
+// ============================================================
+// CURATION — recommendations, announcements
+// ============================================================
+model Recommendation {
+  id         String   @id @default(uuid())
+  novelId    String
+  novel      Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  order      Int
+  isPinned   Boolean  @default(false)
+  isFeatured Boolean  @default(false)
+  addedDate  DateTime @default(now())
+
+  @@index([novelId])
+  @@index([order])
+}
+
+model Announcement {
+  id                  String   @id @default(uuid())
+  title               String
+  content             String
+  priority            String   @default("normal") // "low" | "normal" | "high"
+  startDate           DateTime
+  endDate             DateTime
+  autoDismissDuration Int      @default(10)
+  status              String   @default("draft") // "published" | "draft"
+  displayMode         String   @default("modal") // "modal" | "banner"
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status, startDate, endDate])
+}
+
+// ============================================================
+// USER DATA — bookmarks, reading history
+// ============================================================
+model Bookmark {
+  id      String @id @default(uuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novelId String
+  novel   Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, novelId])
+  @@index([userId])
+}
+
+model ReadingHistory {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  novelId      String
+  chapterId    String
+  chapterTitle String
+  timestamp    DateTime @default(now())
+
+  @@index([userId, timestamp])
+  @@index([userId, novelId])
+}
+
+// ============================================================
+// SUPPLEMENTARY CONTENT
+// ============================================================
+model TranslatorNote {
+  id        String @id @default(uuid())
+  content   String
+  chapterId String
+
+  @@index([chapterId])
+}
+
+model AuthorNote {
+  id        String @id @default(uuid())
+  content   String
+  chapterId String
+
+  @@index([chapterId])
+}
+
+// ============================================================
+// RATINGS
+// ============================================================
+model NovelRating {
+  id        String   @id @default(uuid())
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  rating    Int      // 1 to 5 stars
+  userId    String?  // null if guest
+  username  String?  // name of user
+  createdAt DateTime @default(now())
+
+  @@unique([novelId, userId]) // registered users can rate once per novel
+  @@index([novelId])
+}
+
+// ============================================================
+// COMMENT MENTIONS
+// ============================================================
+model CommentMention {
+  id        String   @id @default(uuid())
+  commentId Int
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([commentId])
+  @@index([novelId])
+}
+
+
