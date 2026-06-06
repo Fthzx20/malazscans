@@ -1,7 +1,7 @@
 /**
  * Prisma Client singleton for Next.js.
  * Uses @prisma/adapter-pg for Prisma 7 compatibility.
- * Prevents multiple instances during hot-reload in development.
+ * Connects via Supabase transaction pooler (port 6543).
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -12,7 +12,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+  const connectionString = process.env.DATABASE_URL!;
+  const adapter = new PrismaPg({ connectionString, max: 5 });
   return new PrismaClient({ adapter });
 }
 
