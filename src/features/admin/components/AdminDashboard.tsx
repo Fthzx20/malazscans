@@ -102,9 +102,9 @@ export const AdminDashboard: React.FC = () => {
       if (activeEditorMode === 'create') {
         // Find current chapter count for ID generation
         const targetNovel = novels.find(n => n.id === selectedAdminNovelId);
-        const chapCount = targetNovel?.volumes?.[0]?.chapters?.length || 0;
-        const newChapterId = `${selectedAdminNovelId}-v1-c${chapCount + 1}`;
-        const chapterTitle = `Chapter ${chapCount + 1}: ${adminChapTitle}`;
+        const chapCount = targetNovel?.volumes?.reduce((acc, v) => acc + v.chapters.length, 0) || 0;
+        const newChapterId = `${selectedAdminNovelId}-c${chapCount + 1}`;
+        const chapterTitle = adminChapTitle;
 
         const res = await fetch(`/api/admin/novels/${selectedAdminNovelId}/chapters`, {
           method: 'POST',
