@@ -93,7 +93,7 @@ export const DetailPage: React.FC = () => {
 
   const renderCover = () => {
     if (selectedNovel.coverImage) {
-      return <img src={selectedNovel.coverImage} alt={selectedNovel.title} className="w-full h-full object-cover" />;
+      return <img src={selectedNovel.coverImage} alt={selectedNovel.title} className="w-full h-full object-contain" />;
     }
     return COVERS[selectedNovel.id] || COVERS['red-sunset'];
   };

@@ -21,7 +21,13 @@ export const NovelCarousel: React.FC<NovelCarouselProps> = ({ recommendedNovels 
   const readerSettings = useReaderStore((state) => state.readerSettings);
   const themeStyles = getThemeStyles(readerSettings.theme);
 
-  if (recommendedNovels.length === 0) return null;
+  if (recommendedNovels.length === 0) {
+    return (
+      <section className={`border border-[#262626] ${themeStyles.cardBg} p-8 text-center`}>
+        <p className={`text-xs font-mono ${themeStyles.accentText}`}>No recommendations yet. Add novels and set them as recommended in the Admin Dashboard.</p>
+      </section>
+    );
+  }
 
   const handleStartReading = (novel: Novel) => {
     setSelectedNovel(novel);
@@ -30,7 +36,7 @@ export const NovelCarousel: React.FC<NovelCarouselProps> = ({ recommendedNovels 
 
   const renderCover = (novel: Novel) => {
     if (novel.coverImage) {
-      return <img src={novel.coverImage} alt={novel.title} className="w-full h-full object-cover" />;
+      return <img src={novel.coverImage} alt={novel.title} className="w-full h-full object-contain" />;
     }
     return COVERS[novel.id] || COVERS['red-sunset'];
   };
@@ -52,8 +58,10 @@ export const NovelCarousel: React.FC<NovelCarouselProps> = ({ recommendedNovels 
             }`}
           >
             {/* Visual Cover on left */}
-            <div className={`lg:col-span-4 h-64 lg:h-96 border-b lg:border-b-0 lg:border-r ${themeStyles.border} relative overflow-hidden flex items-center justify-center ${themeStyles.bg}`}>
-              {renderCover(novel)}
+            <div className={`lg:col-span-4 h-72 lg:h-[420px] border-b lg:border-b-0 lg:border-r ${themeStyles.border} relative overflow-hidden ${themeStyles.bg} p-4 flex items-center justify-center`}>
+              <div className="w-full h-full flex items-center justify-center">
+                {renderCover(novel)}
+              </div>
             </div>
 
             {/* Info and action description */}

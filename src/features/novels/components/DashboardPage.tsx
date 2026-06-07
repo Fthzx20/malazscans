@@ -177,7 +177,11 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className={`divide-y ${themeStyles.border.replace('border-', 'divide-')} border ${themeStyles.border}`}>
-          {getAllRecentReleases().slice(0, 4).map((rel, index) => {
+          {getAllRecentReleases().length === 0 ? (
+            <div className={`p-8 ${themeStyles.cardBg} text-center`}>
+              <p className={`text-xs font-mono ${themeStyles.accentText}`}>No chapters released yet. Check back soon.</p>
+            </div>
+          ) : getAllRecentReleases().slice(0, 4).map((rel, index) => {
             const isRead = readChapters.includes(rel.chapter.id);
             return (
               <div 
@@ -262,7 +266,11 @@ export const DashboardPage: React.FC = () => {
             className="flex transition-transform duration-500 ease-out gap-6"
             style={{ transform: `translateX(-${newestAddedIndex * 290}px)` }}
           >
-            {newestAddedNovels.map((novel) => (
+            {newestAddedNovels.length === 0 ? (
+              <div className={`w-full py-12 text-center`}>
+                <p className={`text-xs font-mono ${themeStyles.accentText}`}>No novels added yet.</p>
+              </div>
+            ) : newestAddedNovels.map((novel) => (
               <NovelCard key={novel.id} novel={novel} variant="slider" />
             ))}
           </div>
