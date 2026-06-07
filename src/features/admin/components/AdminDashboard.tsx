@@ -109,7 +109,7 @@ export const AdminDashboard: React.FC = () => {
         const res = await fetch(`/api/admin/novels/${selectedAdminNovelId}/chapters`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: newChapterId, title: chapterTitle, content: contentToSave }),
+          body: JSON.stringify({ id: newChapterId, title: chapterTitle, content: contentToSave, volumeId: useAdminStore.getState().selectedAdminVolumeId || undefined }),
         });
         if (!res.ok) {
           const data = await res.json();

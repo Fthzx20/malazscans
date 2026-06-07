@@ -86,8 +86,8 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className={`w-full max-w-md ${themeStyles.cardBg} border ${themeStyles.border} p-6 sm:p-8 space-y-6 relative text-current shadow-2xl`}>
+    <div className="fixed inset-0 w-screen h-screen bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className={`w-full max-w-md ${themeStyles.cardBg} border ${themeStyles.border} p-6 sm:p-8 space-y-6 relative text-current shadow-2xl max-h-[90vh] overflow-y-auto`}>
         
         <button 
           onClick={handleClose} 

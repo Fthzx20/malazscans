@@ -6,6 +6,7 @@ interface AdminState {
   editingChapterId: string | null;
   activeEditorMode: 'create' | 'edit' | null;
   selectedAdminNovelId: string;
+  selectedAdminVolumeId: string;
   isNovelDrawerOpen: boolean;
   isSidebarCollapsed: boolean;
   isMobileNavOpen: boolean;
@@ -37,6 +38,7 @@ interface AdminState {
   setEditingChapterId: (id: string | null) => void;
   setActiveEditorMode: (mode: 'create' | 'edit' | null) => void;
   setSelectedAdminNovelId: (id: string) => void;
+  setSelectedAdminVolumeId: (id: string) => void;
   setIsNovelDrawerOpen: (open: boolean) => void;
   setIsSidebarCollapsed: (collapsed: boolean) => void;
   setIsMobileNavOpen: (open: boolean) => void;
@@ -73,6 +75,7 @@ export const useAdminStore = create<AdminState>((set) => ({
   editingChapterId: null,
   activeEditorMode: null,
   selectedAdminNovelId: '',
+  selectedAdminVolumeId: '',
   isNovelDrawerOpen: false,
   isSidebarCollapsed: false,
   isMobileNavOpen: false,
@@ -102,6 +105,7 @@ export const useAdminStore = create<AdminState>((set) => ({
   setEditingChapterId: (id) => set({ editingChapterId: id }),
   setActiveEditorMode: (mode) => set({ activeEditorMode: mode }),
   setSelectedAdminNovelId: (id) => set({ selectedAdminNovelId: id }),
+  setSelectedAdminVolumeId: (id) => set({ selectedAdminVolumeId: id }),
   setIsNovelDrawerOpen: (open) => set({ isNovelDrawerOpen: open }),
   setIsSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed }),
   setIsMobileNavOpen: (open) => set({ isMobileNavOpen: open }),
