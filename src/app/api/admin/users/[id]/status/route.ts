@@ -5,25 +5,17 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../../../lib/supabase/server';
+import { requireAdminSession } from '../../../../../../lib/auth/admin';
 
 const VALID_STATUSES = ['active', 'suspended', 'banned'];
 
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -44,19 +36,6 @@ export async function PATCH(
       where: { id },
       data: { status },
     });
-
-    // If banned/suspended, also ban in Supabase Auth
-    try {
-      const { createAdminClient } = await import('../../../../../../lib/supabase/admin');
-      const adminSupabase = createAdminClient();
-      if (status === 'banned') {
-        await adminSupabase.auth.admin.updateUserById(id, { ban_duration: '876000h' }); // ~100 years
-      } else if (status === 'active') {
-        await adminSupabase.auth.admin.updateUserById(id, { ban_duration: 'none' });
-      }
-    } catch {
-      // Non-fatal
-    }
 
     return NextResponse.json({ id: updated.id, status: updated.status });
   } catch (error) {

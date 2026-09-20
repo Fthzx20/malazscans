@@ -1,16 +1,14 @@
 import { create } from 'zustand';
 import { User } from '../../../types';
-import { SupabaseAuthRepository } from '../../../repositories/supabase';
-
-const supabaseAuth = new SupabaseAuthRepository();
+import { useCoinStore } from '../../coins/store/coinStore';
 
 interface AuthState {
   currentUser: User | null;
   showAuthModal: 'login' | 'register' | 'forgot' | null;
   setCurrentUser: (user: User | null) => void;
   setShowAuthModal: (modal: 'login' | 'register' | 'forgot' | null) => void;
-  logout: () => void;
-  initializeAuth: () => void;
+  logout: () => Promise<void>;
+  initializeAuth: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -20,26 +18,50 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ currentUser: user });
   },
   setShowAuthModal: (modal) => set({ showAuthModal: modal }),
-  logout: () => {
-    supabaseAuth.logoutAsync();
+  logout: async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors on logout
+    }
     set({ currentUser: null });
   },
-  initializeAuth: () => {
-    // Restore session from Supabase (async — sets state when resolved)
-    supabaseAuth.getSessionAsync().then((authUser) => {
-      if (authUser) {
+  initializeAuth: async () => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      if (data.user) {
         set({
           currentUser: {
-            username: authUser.username,
-            email: authUser.email,
-            avatar: authUser.avatar,
-          }
+            id: data.user.id,
+            username: data.user.username,
+            email: data.user.email,
+            avatar: data.user.avatar,
+            role: data.user.role,
+            provider: data.user.provider || null,
+            createdAt: data.user.createdAt,
+          },
+        });
+
+        // Sync coin balance & unlocked chapters with Neon DB
+        if (typeof data.user.coins === 'number') {
+          useCoinStore.getState().setCoins(data.user.coins);
+        }
+        useCoinStore.getState().syncUnlockedChapters();
+
+        // Sync bookmarks & reading history with Neon DB
+        import('../../library/store/libraryStore').then(({ useLibraryStore }) => {
+          useLibraryStore.getState().syncWithCloud();
         });
       }
-    }).catch(() => {
-      // No session — stay logged out
-    });
-  }
+    } catch {
+      // Failed to reach server or no session — stay logged out
+    }
+  },
 }));
 
 export default useAuthStore;

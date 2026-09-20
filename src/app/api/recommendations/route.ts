@@ -1,6 +1,6 @@
 /**
  * API Route: GET /api/recommendations
- * Returns all recommendations with their novel data from Supabase Postgres.
+ * Returns all recommendations with their novel data from Neon PostgreSQL.
  */
 
 import { NextResponse } from 'next/server';

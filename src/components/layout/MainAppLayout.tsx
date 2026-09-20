@@ -8,9 +8,13 @@ import { getThemeStyles } from '../../features/reader/utils/theme';
 
 // Layout Blocks
 import Header from './Header';
+import AnnouncementBanner from './AnnouncementBanner';
 import MobileMenu from './MobileMenu';
+import MobileBottomNav from './MobileBottomNav';
 import AuthModal from '../../features/auth/components/AuthModal';
 import NotificationModal from '../modals/NotificationModal';
+import ToastContainer from '../ui/ToastContainer';
+import { CoinWalletModal } from '../../features/coins/components/CoinWalletModal';
 
 // Pages
 import DashboardPage from '../../features/novels/components/DashboardPage';
@@ -20,9 +24,11 @@ import DetailPage from '../../features/novels/components/DetailPage';
 import ReaderPage from '../../features/reader/components/ReaderPage';
 import AdminDashboard from '../../features/admin/components/AdminDashboard';
 import SettingsPage from '../../features/settings/components/SettingsPage';
+import ProfilePage from '../../features/profile/components/ProfilePage';
 import DmcaPage from '../../features/legal/components/DmcaPage';
 import ContactPage from '../../features/legal/components/ContactPage';
 import { CONFIG } from '../../config';
+import { isAdmin } from '../../types/auth';
 
 import { novelRepository } from '../../repositories';
 
@@ -43,15 +49,13 @@ export const MainAppLayout: React.FC = () => {
   // Prevents hydration mismatch: server renders neutral shell, client routing activates after mount
   const [mounted, setMounted] = useState(false);
 
-  // Initialize store cache values on mount
+  // Initialize settings on mount (auth, novels, library are handled by Providers.tsx)
   useEffect(() => {
-    initializeAuth();
     initializeSettings();
-    initializeNovels();
     setTimeout(() => {
       setMounted(true);
     }, 0);
-  }, [initializeAuth, initializeSettings, initializeNovels]);
+  }, [initializeSettings]);
 
   // Restore state from Browser URL on initial mount
   useEffect(() => {
@@ -69,6 +73,8 @@ export const MainAppLayout: React.FC = () => {
         setCurrentPage('library');
       } else if (first === 'settings') {
         setCurrentPage('settings');
+      } else if (first === 'profile') {
+        setCurrentPage('profile');
       } else if (first === 'dmca') {
         setCurrentPage('dmca');
       } else if (first === 'contact') {
@@ -121,6 +127,9 @@ export const MainAppLayout: React.FC = () => {
       case 'settings':
         targetPath = '/settings';
         break;
+      case 'profile':
+        targetPath = '/profile';
+        break;
       case 'dmca':
         targetPath = '/dmca';
         break;
@@ -168,6 +177,8 @@ export const MainAppLayout: React.FC = () => {
         setCurrentPage('library');
       } else if (first === 'settings') {
         setCurrentPage('settings');
+      } else if (first === 'profile') {
+        setCurrentPage('profile');
       } else if (first === 'dmca') {
         setCurrentPage('dmca');
       } else if (first === 'contact') {
@@ -221,12 +232,14 @@ export const MainAppLayout: React.FC = () => {
         return <ReaderPage />;
       case 'settings':
         return <SettingsPage />;
+      case 'profile':
+        return <ProfilePage />;
       case 'dmca':
         return <DmcaPage />;
       case 'contact':
         return <ContactPage />;
       case 'admin':
-        if (currentUser?.email === CONFIG.ADMIN_EMAIL) {
+        if (isAdmin(currentUser)) {
           return <AdminDashboard />;
         }
         return <DashboardPage />;
@@ -237,8 +250,7 @@ export const MainAppLayout: React.FC = () => {
 
   return (
     <div 
-      className={`min-h-screen flex flex-col justify-between transition-colors duration-200 ${themeStyles.bg} ${themeStyles.text}`}
-      style={{ contentVisibility: 'auto' }}
+      className={`min-h-screen flex flex-col justify-between transition-colors duration-200 ${themeStyles.bg} ${themeStyles.text} ${currentPage !== 'reader' ? 'pb-16 md:pb-0' : ''}`}
     >
       <div>
         {/* Global Notifications Modal */}
@@ -247,60 +259,72 @@ export const MainAppLayout: React.FC = () => {
         {/* Global Login / Register Modal */}
         <AuthModal />
 
-        {/* Global Header */}
-        <Header 
-          mobileMenuOpen={mobileMenuOpen} 
-          setMobileMenuOpen={setMobileMenuOpen} 
-        />
+        {/* Global Coin Wallet Modal */}
+        <CoinWalletModal />
 
-        {/* Mobile menu panel */}
-        <MobileMenu 
-          mobileMenuOpen={mobileMenuOpen} 
-          setMobileMenuOpen={setMobileMenuOpen} 
-        />
+        {/* Global Toast Feedback */}
+        <ToastContainer />
+
+        {/* Global Header & Announcement Banner (Hidden in reader view to give 100% canvas to reading) */}
+        {currentPage !== 'reader' && (
+          <>
+            <AnnouncementBanner />
+            <Header 
+              mobileMenuOpen={mobileMenuOpen} 
+              setMobileMenuOpen={setMobileMenuOpen} 
+            />
+            <MobileMenu 
+              mobileMenuOpen={mobileMenuOpen} 
+              setMobileMenuOpen={setMobileMenuOpen} 
+            />
+          </>
+        )}
 
         {/* Active Page View */}
         {renderActivePage()}
+
+        {/* Mobile Fixed Bottom Navigation Bar */}
+        <MobileBottomNav />
       </div>
 
       {/* Global Footer */}
       <footer className={`border-t ${themeStyles.border} py-12 ${themeStyles.footerBg} ${themeStyles.accentText} transition-colors duration-200`}>
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-3">
-          <span className="text-xs font-mono block">
-            &copy; 2026 MALAZ TL &bull; LIGHT NOVEL TRANSLATION.
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center space-y-4">
+          <span className="text-xs font-mono block tracking-wider">
+            &copy; {new Date().getFullYear()} MALAZ TL &bull; LIGHT NOVEL TRANSLATION.
           </span>
-          <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 text-[10px] font-mono">
+          <nav aria-label="Footer Navigation" className="flex justify-center flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs font-mono">
             <button 
               onClick={() => setCurrentPage('dashboard')} 
-              className="hover:text-current bg-transparent border-none cursor-pointer font-bold uppercase"
+              className="py-1 px-2.5 hover:text-[#FF3D00] transition-colors bg-transparent border-none cursor-pointer font-bold uppercase tracking-wider text-current/80 hover:text-current"
             >
-              CATALOG
+              Catalog
             </button>
             <button 
               onClick={() => setCurrentPage('library')} 
-              className="hover:text-current bg-transparent border-none cursor-pointer font-bold uppercase"
+              className="py-1 px-2.5 hover:text-[#FF3D00] transition-colors bg-transparent border-none cursor-pointer font-bold uppercase tracking-wider text-current/80 hover:text-current"
             >
-              BOOKSHELF
+              Bookshelf
             </button>
             <button 
               onClick={() => setCurrentPage('settings')} 
-              className="hover:text-current bg-transparent border-none cursor-pointer font-bold uppercase"
+              className="py-1 px-2.5 hover:text-[#FF3D00] transition-colors bg-transparent border-none cursor-pointer font-bold uppercase tracking-wider text-current/80 hover:text-current"
             >
-              SETTINGS
+              Settings
             </button>
             <button 
               onClick={() => setCurrentPage('dmca')} 
-              className="hover:text-current bg-transparent border-none cursor-pointer font-bold uppercase"
+              className="py-1 px-2.5 hover:text-[#FF3D00] transition-colors bg-transparent border-none cursor-pointer font-bold uppercase tracking-wider text-current/80 hover:text-current"
             >
               DMCA
             </button>
             <button 
               onClick={() => setCurrentPage('contact')} 
-              className="hover:text-current bg-transparent border-none cursor-pointer font-bold uppercase"
+              className="py-1 px-2.5 hover:text-[#FF3D00] transition-colors bg-transparent border-none cursor-pointer font-bold uppercase tracking-wider text-current/80 hover:text-current"
             >
-              CONTACT
+              Contact
             </button>
-          </div>
+          </nav>
         </div>
       </footer>
     </div>

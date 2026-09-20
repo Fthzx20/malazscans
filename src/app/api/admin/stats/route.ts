@@ -5,8 +5,13 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
+import { requireAdminSession } from '../../../../lib/auth/admin';
 
 export async function GET() {
+  if (!(await requireAdminSession())) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const now = new Date();
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);

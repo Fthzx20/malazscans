@@ -12,38 +12,38 @@ export const MetricsTab: React.FC = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="border border-[#262626] p-4 bg-[#0F0F0F] space-y-1">
         <div className="flex items-center justify-between text-[#737373]">
-          <span className="text-[10px] font-mono uppercase font-bold">TOTAL NOVEL</span>
+          <span className="text-[10px] font-mono uppercase font-bold">TOTAL NOVELS</span>
           <BookOpen className="w-4 h-4 text-[#FF3D00]" />
         </div>
         <p className="text-2xl font-black text-white">{novels.length}</p>
-        <span className="text-[9px] text-[#737373] block">Judul Terdaftar di Sistem</span>
+        <span className="text-[9px] text-[#737373] block">Novels Registered in System</span>
       </div>
 
       <div className="border border-[#262626] p-4 bg-[#0F0F0F] space-y-1">
         <div className="flex items-center justify-between text-[#737373]">
-          <span className="text-[10px] font-mono uppercase font-bold">PEMBACA AKTIF</span>
+          <span className="text-[10px] font-mono uppercase font-bold">ACTIVE READERS</span>
           <User className="w-4 h-4 text-[#FF3D00]" />
         </div>
         <p className="text-2xl font-black text-white">48,450</p>
-        <span className="text-[9px] text-[#FF3D00] font-bold block">+12% Bulan Ini</span>
+        <span className="text-[9px] text-[#FF3D00] font-bold block">+12% This Month</span>
       </div>
 
       <div className="border border-[#262626] p-4 bg-[#0F0F0F] space-y-1">
         <div className="flex items-center justify-between text-[#737373]">
-          <span className="text-[10px] font-mono uppercase font-bold">BAB TERBIT</span>
+          <span className="text-[10px] font-mono uppercase font-bold">PUBLISHED CHAPTERS</span>
           <FileText className="w-4 h-4 text-[#FF3D00]" />
         </div>
         <p className="text-2xl font-black text-white">{totalChapters}</p>
-        <span className="text-[9px] text-[#737373] block">Translasi Selesai</span>
+        <span className="text-[9px] text-[#737373] block">Completed Translations</span>
       </div>
 
       <div className="border border-[#262626] p-4 bg-[#0F0F0F] space-y-1">
         <div className="flex items-center justify-between text-[#737373]">
-          <span className="text-[10px] font-mono uppercase font-bold">ESTIMASI KONTRIBUSI</span>
+          <span className="text-[10px] font-mono uppercase font-bold">ESTIMATED REVENUE</span>
           <BarChart2 className="w-4 h-4 text-[#FF3D00]" />
         </div>
         <p className="text-2xl font-black text-white">Rp 4.9M</p>
-        <span className="text-[9px] text-green-500 font-bold block">VIP Pendapatan</span>
+        <span className="text-[9px] text-green-500 font-bold block">VIP Revenue</span>
       </div>
     </div>
   );

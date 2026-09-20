@@ -4,3 +4,4 @@ export { LocalStorageLibraryRepository } from './library.repository';
 export { LocalStorageSettingsRepository } from './settings.repository';
 export { LocalStorageRecommendationRepository } from './recommendation.repository';
 export { LocalStorageNotificationRepository } from './notification.repository';
+export { LocalStorageAuthRepository } from './auth.repository';

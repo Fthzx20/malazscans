@@ -1,18 +1,18 @@
 import { z } from 'zod';
 
 export const novelFormSchema = z.object({
-  title: z.string().min(1, 'Judul utama wajib diisi'),
-  alternativeTitle: z.string().min(1, 'Judul alternatif wajib diisi'),
-  author: z.string().min(1, 'Penulis asli wajib diisi'),
-  translator: z.string().min(1, 'Penerjemah wajib diisi'),
-  genres: z.string().min(1, 'Genre utama wajib diisi'),
-  synopsis: z.string().min(1, 'Sinopsis wajib diisi')
+  title: z.string().min(1, 'Main title is required'),
+  alternativeTitle: z.string().min(1, 'Alternative title is required'),
+  author: z.string().min(1, 'Original author is required'),
+  translator: z.string().min(1, 'Translator is required'),
+  genres: z.string().min(1, 'Main genre is required'),
+  synopsis: z.string().min(1, 'Synopsis is required')
 });
 
 export const chapterFormSchema = z.object({
-  novelId: z.string().min(1, 'Pilih novel sasaran'),
-  title: z.string().min(1, 'Judul bab wajib diisi'),
-  content: z.string().min(1, 'Isi konten bab wajib diisi')
+  novelId: z.string().min(1, 'Select target novel'),
+  title: z.string().min(1, 'Chapter title is required'),
+  content: z.string().min(1, 'Chapter content is required')
 });
 
 export type NovelFormInput = z.infer<typeof novelFormSchema>;

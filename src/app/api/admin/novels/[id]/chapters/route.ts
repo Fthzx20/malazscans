@@ -5,23 +5,15 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../../../lib/supabase/server';
+import { requireAdminSession } from '../../../../../../lib/auth/admin';
 
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -29,7 +21,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { id, title, content, volumeId } = body;
+    const { id, title, content, volumeId, isLocked, coinPrice } = body;
 
     if (!id || !title) {
       return NextResponse.json({ error: 'id and title are required' }, { status: 400 });
@@ -54,12 +46,16 @@ export async function POST(
         title,
         content: content || '',
         volumeId: targetVolumeId,
+        isLocked: typeof isLocked === 'boolean' ? isLocked : false,
+        coinPrice: typeof coinPrice === 'number' ? coinPrice : 5,
       },
     });
 
     return NextResponse.json({
       id: chapter.id,
       title: chapter.title,
+      isLocked: chapter.isLocked,
+      coinPrice: chapter.coinPrice,
       publishDate: chapter.publishDate.toISOString(),
     }, { status: 201 });
   } catch (error) {

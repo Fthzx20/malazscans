@@ -5,25 +5,17 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../../../lib/supabase/server';
+import { requireAdminSession } from '../../../../../../lib/auth/admin';
 
 const VALID_ROLES = ['user', 'moderator', 'editor', 'translator', 'admin'];
 
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -44,17 +36,6 @@ export async function PATCH(
       where: { id },
       data: { role },
     });
-
-    // Also update Supabase Auth user_metadata to keep in sync
-    try {
-      const { createAdminClient } = await import('../../../../../../lib/supabase/admin');
-      const adminSupabase = createAdminClient();
-      await adminSupabase.auth.admin.updateUserById(id, {
-        user_metadata: { role },
-      });
-    } catch {
-      // Non-fatal: Supabase Auth user may not exist for this DB user
-    }
 
     return NextResponse.json({ id: updated.id, role: updated.role });
   } catch (error) {

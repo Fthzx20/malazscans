@@ -5,23 +5,15 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../../lib/supabase/server';
+import { requireAdminSession } from '../../../../../lib/auth/admin';
 
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -32,13 +24,22 @@ export async function PATCH(
     const data: {
       title?: string;
       content?: string;
+      isLocked?: boolean;
+      coinPrice?: number;
     } = {};
 
     if (body.title !== undefined) data.title = body.title;
     if (body.content !== undefined) data.content = body.content;
+    if (body.isLocked !== undefined) data.isLocked = Boolean(body.isLocked);
+    if (body.coinPrice !== undefined) data.coinPrice = Number(body.coinPrice);
 
     const updated = await prisma.chapter.update({ where: { id }, data });
-    return NextResponse.json({ id: updated.id, title: updated.title });
+    return NextResponse.json({ 
+      id: updated.id, 
+      title: updated.title,
+      isLocked: updated.isLocked,
+      coinPrice: updated.coinPrice,
+    });
   } catch (error) {
     console.error('Failed to update chapter:', error);
     return NextResponse.json({ error: 'Failed to update chapter' }, { status: 500 });
@@ -49,7 +50,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

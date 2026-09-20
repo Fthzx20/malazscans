@@ -22,11 +22,14 @@ interface NovelState {
   setCarouselIndex: (index: number | ((prev: number) => number)) => void;
   setNewestAddedIndex: (index: number | ((prev: number) => number)) => void;
   triggerToast: (message: string) => void;
+  clearToast: () => void;
   
   addNovel: (novel: Novel) => void;
-  addChapter: (novelId: string, chapter: Chapter) => boolean;
+  addChapter: (novelId: string, chapter: Chapter, targetVolumeNumber?: number) => boolean;
   updateNovelRating: (novelId: string, rating: string, ratingCount: number) => void;
 }
+
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useNovelStore = create<NovelState>((set, get) => ({
   novels: [],
@@ -106,12 +109,23 @@ export const useNovelStore = create<NovelState>((set, get) => ({
   },
   
   triggerToast: (message) => {
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
     set({ toastMessage: message });
-    setTimeout(() => {
-      if (get().toastMessage === message) {
-        set({ toastMessage: '' });
-      }
-    }, 3000);
+    toastTimer = setTimeout(() => {
+      set({ toastMessage: '' });
+      toastTimer = null;
+    }, 3500);
+  },
+
+  clearToast: () => {
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+    set({ toastMessage: '' });
   },
 
   addNovel: (newNovel) => {
@@ -121,25 +135,51 @@ export const useNovelStore = create<NovelState>((set, get) => ({
     set({ novels: updated });
   },
 
-  addChapter: (novelId, chapter) => {
+  addChapter: (novelId, chapter, targetVolumeNumber) => {
     const { novels } = get();
-    const updated = [...novels];
-    const targetIdx = updated.findIndex((n) => n.id === novelId);
+    const targetIdx = novels.findIndex((n) => n.id === novelId);
     if (targetIdx === -1) return false;
-    
-    const targetNovel = updated[targetIdx];
-    const targetVolume = targetNovel.volumes[0];
-    
-    targetVolume.chapters.push(chapter);
+
+    const updated = novels.map((n) => {
+      if (n.id !== novelId) return n;
+      
+      const existingVolumes = n.volumes && n.volumes.length > 0
+        ? n.volumes
+        : [{ volumeNumber: 1, title: 'Volume 1', chapters: [] }];
+
+      const targetVolNum = targetVolumeNumber ?? existingVolumes[0]?.volumeNumber ?? 1;
+      const hasTargetVol = existingVolumes.some((v) => v.volumeNumber === targetVolNum);
+
+      let volumes = existingVolumes;
+      if (!hasTargetVol) {
+        volumes = [...existingVolumes, { volumeNumber: targetVolNum, title: `Volume ${targetVolNum}`, chapters: [] }]
+          .sort((a, b) => a.volumeNumber - b.volumeNumber);
+      }
+
+      const updatedVolumes = volumes.map((vol) => {
+        if (vol.volumeNumber === targetVolNum) {
+          const existingIdx = vol.chapters.findIndex((c) => c.id === chapter.id);
+          const chapters = existingIdx >= 0
+            ? vol.chapters.map((c, i) => (i === existingIdx ? chapter : c))
+            : [...vol.chapters, chapter];
+          return { ...vol, chapters };
+        }
+        return vol;
+      });
+
+      return { ...n, volumes: updatedVolumes };
+    });
+
     novelRepository.save(updated);
     set({ novels: updated });
-    
+
     // Update selected novel to reflect changes if it is the currently viewed one
     const selected = get().selectedNovel;
     if (selected && selected.id === novelId) {
-      set({ selectedNovel: { ...targetNovel } });
+      const updatedNovel = updated.find((n) => n.id === novelId) || null;
+      set({ selectedNovel: updatedNovel });
     }
-    
+
     return true;
   },
 

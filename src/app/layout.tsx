@@ -14,8 +14,45 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Malaz Scans — Light Novel Translation",
-  description: "A curated Japanese light novel translation platform featuring bookmarking, reading history, verified comments, and admin-curated releases.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://malazscans.com'),
+  title: {
+    default: "Malaz Scans — Light Novel Translation",
+    template: "%s | Malaz Scans",
+  },
+  description: "Curated light novel translation platform featuring a dark brutalist aesthetic, personal bookshelf, real-time reading history, and distraction-free zen reader.",
+  keywords: ["light novel", "web novel", "novel translation", "read light novel", "malaz scans", "malazbaca", "japanese light novel"],
+  authors: [{ name: "Malaz TL" }],
+  creator: "Malaz TL",
+  publisher: "Malaz Scans",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "/",
+    siteName: "Malaz Scans",
+    title: "Malaz Scans — Light Novel Translation Platform",
+    description: "Curated light novel translation platform with a dark brutalist aesthetic, personal bookshelf, and immersive reading experience.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Malaz Scans — Light Novel Translation Platform",
+    description: "Curated light novel translation platform with a dark brutalist aesthetic, personal bookshelf, and immersive reading experience.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
 };
 
 export default function RootLayout({

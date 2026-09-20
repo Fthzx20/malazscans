@@ -25,7 +25,7 @@ export const AnalyticsTab: React.FC = () => {
   }, []);
 
   if (loading) {
-    return <div className="text-xs font-mono text-[#737373] animate-pulse p-4">Fetching analytics from Supabase...</div>;
+    return <div className="text-xs font-mono text-[#737373] animate-pulse p-4">Fetching analytics from database...</div>;
   }
 
   if (!stats) {

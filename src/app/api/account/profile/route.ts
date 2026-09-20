@@ -1,31 +1,21 @@
 /**
  * API Route: GET/PATCH /api/account/profile
- * Authenticated user: Read or update their own profile.
+ * Authenticated user: Read or update their own profile via Neon Session.
  */
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../lib/supabase/server';
-
-async function getAuthUser() {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
-  } catch {
-    return null;
-  }
-}
+import { getSessionUser } from '../../../../lib/auth/session';
 
 export async function GET() {
-  const authUser = await getAuthUser();
-  if (!authUser) {
+  const session = await getSessionUser();
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    let user = await prisma.user.findUnique({
-      where: { id: authUser.id },
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
       select: {
         id: true,
         username: true,
@@ -33,33 +23,14 @@ export async function GET() {
         avatar: true,
         role: true,
         status: true,
+        coins: true,
         createdAt: true,
         lastLoginAt: true,
       },
     });
 
     if (!user) {
-      // User exists in Supabase Auth but not in DB — create profile row
-      user = await prisma.user.create({
-        data: {
-          id: authUser.id,
-          username: authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'User',
-          email: authUser.email!,
-          password: '',
-          avatar: authUser.user_metadata?.avatar || null,
-          role: authUser.user_metadata?.role || 'user',
-        },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          avatar: true,
-          role: true,
-          status: true,
-          createdAt: true,
-          lastLoginAt: true,
-        },
-      });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     return NextResponse.json(user);
@@ -70,8 +41,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const authUser = await getAuthUser();
-  if (!authUser) {
+  const session = await getSessionUser();
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -91,7 +62,7 @@ export async function PATCH(request: Request) {
 
       // Check uniqueness (skip if same user)
       const existing = await prisma.user.findUnique({ where: { username: trimmed } });
-      if (existing && existing.id !== authUser.id) {
+      if (existing && existing.id !== session.userId) {
         return NextResponse.json({ error: 'Username is already taken.' }, { status: 409 });
       }
 
@@ -102,41 +73,20 @@ export async function PATCH(request: Request) {
       updateData.avatar = body.avatar || null;
     }
 
-    // Upsert: if user row doesn't exist yet, create it
-    const user = await prisma.user.upsert({
-      where: { id: authUser.id },
-      update: updateData,
-      create: {
-        id: authUser.id,
-        username: (updateData.username as string) || authUser.user_metadata?.username || authUser.email?.split('@')[0] || 'User',
-        email: authUser.email!,
-        password: '',
-        avatar: (updateData.avatar as string) || null,
-        role: authUser.user_metadata?.role || 'user',
+    const user = await prisma.user.update({
+      where: { id: session.userId },
+      data: updateData,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar: true,
+        coins: true,
       },
     });
 
-    // Sync username and avatar to Supabase Auth metadata
-    try {
-      const supabase = await createServerSupabaseClient();
-      await supabase.auth.updateUser({
-        data: {
-          username: user.username,
-          avatar: user.avatar,
-        },
-      });
-    } catch {
-      // Non-fatal — DB is the source of truth
-    }
-
-    return NextResponse.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      avatar: user.avatar,
-    });
+    return NextResponse.json(user);
   } catch (error: any) {
-    // Handle Prisma unique constraint violation
     if (error?.code === 'P2002' && error?.meta?.target?.includes('username')) {
       return NextResponse.json({ error: 'Username is already taken.' }, { status: 409 });
     }

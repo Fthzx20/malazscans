@@ -1,7 +1,7 @@
 /**
  * Prisma Client singleton for Next.js.
  * Uses @prisma/adapter-pg for Prisma 7 compatibility.
- * Connects via Supabase transaction pooler (port 6543).
+ * Connects via Neon PostgreSQL connection pooling.
  */
 
 import { PrismaClient } from '@prisma/client';

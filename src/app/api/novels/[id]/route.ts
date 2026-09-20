@@ -1,10 +1,11 @@
 /**
  * API Route: GET /api/novels/:id
- * Returns a single novel by slug ID from Supabase Postgres.
+ * Returns a single novel by slug ID from Turso libSQL or Neon PostgreSQL.
  */
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
+import { getTursoNovelById, isTursoConfigured } from '../../../../lib/db';
 
 export async function GET(
   _request: Request,
@@ -13,6 +14,27 @@ export async function GET(
   const { id } = await params;
 
   try {
+    let bookmarkCount = 0;
+    try {
+      bookmarkCount = await prisma.bookmark.count({
+        where: { novelId: id }
+      });
+    } catch {
+      // Neon / DB not yet connected or running offline
+    }
+
+    if (isTursoConfigured) {
+      const novel = await getTursoNovelById(id);
+      if (!novel) {
+        return NextResponse.json({ error: 'Novel not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        ...novel,
+        bookmarkCount,
+      });
+    }
+
     const novel = await prisma.novel.findUnique({
       where: { id },
       include: {
@@ -30,10 +52,6 @@ export async function GET(
     if (!novel) {
       return NextResponse.json({ error: 'Novel not found' }, { status: 404 });
     }
-
-    const bookmarkCount = await prisma.bookmark.count({
-      where: { novelId: id }
-    });
 
     const mapped = {
       id: novel.id,
@@ -53,7 +71,7 @@ export async function GET(
       rating: String(novel.rating),
       ratingCount: novel.ratingCount || 0,
       bookmarkCount,
-      views: novel.views.toLocaleString(),
+      views: String(novel.views),
       genres: novel.genres,
       tags: novel.tags,
       coverImage: novel.coverImage || '',

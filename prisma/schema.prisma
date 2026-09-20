@@ -7,7 +7,8 @@ generator client {
 }
 
 // ============================================================
-// AUTH — maps to Supabase Auth + custom profile data
+// ============================================================
+// AUTH & USERS (NEON POSTGRESQL)
 // ============================================================
 model User {
   id          String    @id @default(uuid())
@@ -16,7 +17,9 @@ model User {
   role        String    @default("user") // "admin" | "moderator" | "editor" | "translator" | "user"
   status      String    @default("active") // "active" | "suspended" | "banned"
   avatar      String?
-  password    String
+  password    String?
+  provider    String?   // "google" | "github" | null
+  coins       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   lastLoginAt DateTime?
@@ -58,9 +61,6 @@ model Novel {
   isRecommended    Boolean        @default(false)
   volumes          Volume[]
   recommendations  Recommendation[]
-  bookmarks        Bookmark[]
-  ratings          NovelRating[]
-  commentMentions  CommentMention[]
 
   @@index([status])
   @@index([addedDate])
@@ -82,9 +82,10 @@ model Chapter {
   title         String
   publishDate   DateTime       @default(now())
   content       String         // Tiptap JSON or legacy text
+  isLocked      Boolean        @default(false)
+  coinPrice     Int            @default(5)
   volumeId      String
   volume        Volume         @relation(fields: [volumeId], references: [id], onDelete: Cascade)
-  comments      Comment[]
   illustrations Illustration[]
 
   @@index([volumeId])
@@ -109,13 +110,16 @@ model Illustration {
 // ============================================================
 // ENGAGEMENT — comments, reactions, mentions
 // ============================================================
+// ============================================================
+// ENGAGEMENT — comments, reactions, mentions
+// Decoupled: chapterId is a string reference without @relation
+// ============================================================
 model Comment {
   id               Int       @id @default(autoincrement())
   parentId         Int?
   parent           Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies          Comment[] @relation("CommentReplies")
   chapterId        String
-  chapter          Chapter   @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   userId           String?
   user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   username         String    // denormalized for display (guest or registered)
@@ -184,17 +188,17 @@ model Announcement {
 }
 
 // ============================================================
-// USER DATA — bookmarks, reading history
+// USER DATA — bookmarks, reading history (Decoupled from Content)
 // ============================================================
 model Bookmark {
   id      String @id @default(uuid())
   userId  String
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   novelId String
-  novel   Novel  @relation(fields: [novelId], references: [id], onDelete: Cascade)
 
   @@unique([userId, novelId])
   @@index([userId])
+  @@index([novelId])
 }
 
 model ReadingHistory {
@@ -230,12 +234,11 @@ model AuthorNote {
 }
 
 // ============================================================
-// RATINGS
+// RATINGS (Decoupled from Content)
 // ============================================================
 model NovelRating {
   id        String   @id @default(uuid())
   novelId   String
-  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
   rating    Int      // 1 to 5 stars
   userId    String?  // null if guest
   username  String?  // name of user
@@ -246,14 +249,13 @@ model NovelRating {
 }
 
 // ============================================================
-// COMMENT MENTIONS
+// COMMENT MENTIONS (Decoupled from Content)
 // ============================================================
 model CommentMention {
   id        String   @id @default(uuid())
   commentId Int
   comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   novelId   String
-  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
   @@index([commentId])
@@ -277,4 +279,51 @@ model LinkPreviewCache {
   updatedAt   DateTime @updatedAt
 
   @@index([url])
+}
+
+// ============================================================
+// COIN & MONETIZATION (DECOUPLED DUAL-DB READY: TURSO + NEON)
+// Note: Novel/Chapter references use decoupled string IDs
+// ============================================================
+model CoinOrder {
+  id          String   @id @default(uuid())
+  userId      String?
+  packageId   String
+  coins       Int
+  amountIdr   Int
+  status      String   @default("PENDING") // "PENDING" | "PAID" | "FAILED" | "EXPIRED"
+  snapToken   String?
+  paymentType String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model CoinTransaction {
+  id          String   @id @default(uuid())
+  userId      String?
+  type        String   // "TOPUP" | "UNLOCK"
+  amount      Int      // positive for topup, negative for unlock
+  description String
+  chapterId   String?  // Decoupled string ID
+  novelId     String?  // Decoupled string ID
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model UnlockedChapter {
+  id         String   @id @default(uuid())
+  userId     String
+  novelId    String   // Decoupled string ID
+  chapterId  String   // Decoupled string ID
+  cost       Int      @default(5)
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, chapterId])
+  @@index([userId])
+  @@index([chapterId])
 }

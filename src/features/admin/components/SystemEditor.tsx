@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ArrowLeft, Save, Bold, Italic, Underline as UnderlineIcon, List, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Save, Bold, Italic, Underline as UnderlineIcon, List, ImageIcon, Lock, Unlock, Coins, Quote, Minus } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -30,6 +30,10 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
   const setAdminChapTitle = useAdminStore((state) => state.setAdminChapTitle);
   const adminChapContent = useAdminStore((state) => state.adminChapContent);
   const setAdminChapContent = useAdminStore((state) => state.setAdminChapContent);
+  const adminChapIsLocked = useAdminStore((state) => state.adminChapIsLocked);
+  const setAdminChapIsLocked = useAdminStore((state) => state.setAdminChapIsLocked);
+  const adminChapCoinPrice = useAdminStore((state) => state.adminChapCoinPrice);
+  const setAdminChapCoinPrice = useAdminStore((state) => state.setAdminChapCoinPrice);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetNovel = novels.find(n => n.id === selectedAdminNovelId);
@@ -176,13 +180,15 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
         chapterId: editingChapterId,
         title: adminChapTitle,
         content: jsonContent,
+        isLocked: adminChapIsLocked,
+        coinPrice: adminChapCoinPrice,
         timestamp: Date.now()
       };
       localStorage.setItem('kult_editor_draft', JSON.stringify(draft));
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [editor, selectedAdminNovelId, editingChapterId, adminChapTitle]);
+  }, [editor, selectedAdminNovelId, editingChapterId, adminChapTitle, adminChapIsLocked, adminChapCoinPrice]);
 
   // Restore draft content automatically on mount
   useEffect(() => {
@@ -194,6 +200,8 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
         const draft = JSON.parse(savedDraft);
         if (draft.novelId === selectedAdminNovelId && draft.chapterId === editingChapterId) {
           setAdminChapTitle(draft.title);
+          if (draft.isLocked !== undefined) setAdminChapIsLocked(draft.isLocked);
+          if (draft.coinPrice !== undefined) setAdminChapCoinPrice(draft.coinPrice);
           editor.commands.setContent(draft.content);
           setAdminChapContent(JSON.stringify(draft.content));
           triggerToast("Auto-save draft restored successfully.");
@@ -202,7 +210,7 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
         // Fail silently
       }
     }
-  }, [editor, selectedAdminNovelId, editingChapterId, setAdminChapTitle, setAdminChapContent, triggerToast]);
+  }, [editor, selectedAdminNovelId, editingChapterId, setAdminChapTitle, setAdminChapContent, setAdminChapIsLocked, setAdminChapCoinPrice, triggerToast]);
 
   const getWordCount = (text: string) => {
     if (!text.trim()) return 0;
@@ -236,6 +244,7 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
   const plainText = editor?.getText() || '';
   const wordCount = getWordCount(plainText);
   const charCount = plainText.length;
+  const estimatedReadingMinutes = Math.max(1, Math.ceil(wordCount / 220));
 
   return (
     <div className="space-y-6">
@@ -336,6 +345,22 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
             >
               <List className="w-4.5 h-4.5" />
             </button>
+            <button 
+              onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+              className={`p-2 hover:bg-[#FF3D00] hover:text-[#0A0A0A] transition-all border-none cursor-pointer ${
+                editor?.isActive('blockquote') ? 'bg-[#FF3D00] text-[#0A0A0A]' : 'text-[#FAFAFA] bg-transparent'
+              }`}
+              title="Quote / Dialogue"
+            >
+              <Quote className="w-4.5 h-4.5" />
+            </button>
+            <button 
+              onClick={() => editor?.chain().focus().setHorizontalRule().run()}
+              className="p-2 hover:bg-[#FF3D00] hover:text-[#0A0A0A] text-[#FAFAFA] transition-all border-none cursor-pointer bg-transparent"
+              title="Scene Break (Horizontal Divider)"
+            >
+              <Minus className="w-4.5 h-4.5" />
+            </button>
             <span className="w-px h-6 bg-[#262626] mx-1"></span>
             
             {/* Direct Image Upload button */}
@@ -380,7 +405,17 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
             >
               + Author Note
             </button>
-            <span className="ml-auto text-[10px] font-mono text-[#737373] hidden sm:inline">Tiptap Engine</span>
+            <div className="ml-auto flex items-center gap-2 sm:gap-3 text-xs font-mono">
+              <span className="hidden md:inline font-bold text-neutral-300">
+                {wordCount.toLocaleString()} words
+              </span>
+              <span className="hidden lg:inline text-neutral-500">
+                ({charCount.toLocaleString()} chars)
+              </span>
+              <span className="text-[#FF3D00] bg-[#FF3D00]/10 px-2 py-0.5 border border-[#FF3D00]/25 font-bold text-[11px]">
+                ~{wordCount > 0 ? estimatedReadingMinutes : 0} min read
+              </span>
+            </div>
           </div>
 
           {/* Expanded Paper Layout */}
@@ -398,18 +433,66 @@ export const SystemEditor: React.FC<SystemEditorProps> = ({ handleSaveChapter })
               <span className="text-[10px] font-mono text-[#737373] mt-2 block">Target: Volume 1</span>
             </div>
 
+            {/* Chapter Monetization & Lock Settings Bar */}
+            <div className="bg-[#141416] border border-[#262626] p-4 flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 border ${adminChapIsLocked ? 'bg-amber-500/10 border-amber-500/40 text-amber-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400'}`}>
+                  {adminChapIsLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                </div>
+                <div>
+                  <span className="font-bold text-white uppercase block">
+                    {adminChapIsLocked ? 'Locked Chapter (Paid)' : 'Free Chapter'}
+                  </span>
+                  <span className="text-[10px] text-zinc-400">
+                    {adminChapIsLocked ? 'Readers require coins to unlock this chapter.' : 'All readers can access this chapter for free.'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAdminChapIsLocked(!adminChapIsLocked)}
+                  className={`px-3 py-1.5 border font-bold uppercase text-xs transition-colors cursor-pointer ${
+                    adminChapIsLocked
+                      ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400'
+                      : 'bg-transparent text-zinc-300 border-zinc-700 hover:border-white'
+                  }`}
+                >
+                  {adminChapIsLocked ? 'Locked (Coins)' : 'Set as Locked'}
+                </button>
+
+                {adminChapIsLocked && (
+                  <div className="flex items-center gap-2 bg-[#0F0F11] border border-amber-500/40 px-3 py-1 text-amber-400">
+                    <Coins className="w-3.5 h-3.5" />
+                    <span className="text-[10px] uppercase font-bold text-zinc-400">Price:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="500"
+                      value={adminChapCoinPrice}
+                      onChange={(e) => setAdminChapCoinPrice(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 bg-transparent font-black text-amber-400 text-xs focus:outline-none border-b border-amber-500/60 text-center"
+                    />
+                    <span className="text-[10px] uppercase font-bold">Coins</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Document Body Area */}
             <div className="flex-grow flex flex-col">
               <EditorContent editor={editor} />
             </div>
 
             {/* Status Bar */}
-            <div className="border-t border-[#262626] pt-5 flex flex-col sm:flex-row justify-between items-center text-[10px] font-mono text-[#737373] gap-2">
-              <div className="flex items-center space-x-4">
-                <span>WORD COUNT: <strong className="text-white">{wordCount}</strong></span>
-                <span>CHARACTERS: <strong className="text-white">{charCount}</strong></span>
+            <div className="border-t border-[#262626] pt-5 flex flex-col sm:flex-row justify-between items-center text-xs font-mono text-[#737373] gap-2">
+              <div className="flex items-center flex-wrap gap-4">
+                <span>WORD COUNT: <strong className="text-white font-bold">{wordCount.toLocaleString()}</strong></span>
+                <span>CHARACTERS: <strong className="text-white font-bold">{charCount.toLocaleString()}</strong></span>
+                <span>EST. READING TIME: <strong className="text-[#FF3D00] font-bold">~{wordCount > 0 ? estimatedReadingMinutes : 0} MIN</strong></span>
               </div>
-              <span className="text-[#FF3D00] font-bold uppercase animate-pulse flex items-center gap-1">
+              <span className="text-[#FF3D00] font-bold uppercase animate-pulse flex items-center gap-1 text-[11px]">
                 <span className="w-1.5 h-1.5 bg-[#FF3D00] rounded-full"></span> Autosave active to local cache
               </span>
             </div>

@@ -4,6 +4,8 @@ export interface Chapter {
   publishDate: string;
   content: string; // Tiptap JSON string or legacy text
   volumeTitle?: string;
+  isLocked?: boolean;
+  coinPrice?: number;
 }
 
 export interface Volume {
@@ -57,10 +59,56 @@ export interface Recommendation {
 }
 
 export interface User {
+  id?: string;
   username: string;
   email: string;
   avatar?: string; // base64 or URL
   password?: string;
+  role?: string;
+  coins?: number;
+  provider?: 'google' | 'github' | null;
+  createdAt?: string;
+}
+
+export interface CoinPackage {
+  id: string;
+  coins: number;
+  bonusCoins?: number;
+  priceIdr: number;
+  label: string;
+  badge?: string;
+}
+
+export interface CoinTransaction {
+  id: string;
+  userId?: string;
+  type: 'TOPUP' | 'UNLOCK';
+  amount: number; // positive for topup, negative for unlock
+  description: string;
+  createdAt: string;
+  chapterId?: string;
+  novelId?: string;
+}
+
+export interface CoinOrder {
+  id: string;
+  userId?: string;
+  packageId: string;
+  coins: number;
+  amountIdr: number;
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
+  snapToken?: string;
+  paymentType?: string;
+  createdAt: string;
+}
+
+export interface UnlockedChapter {
+  id: string;
+  userId?: string;
+  novelId: string;
+  chapterId: string;
+  unlockedAt: string;
+  cost: number;
 }
 
 export interface ReadingHistory {
@@ -93,6 +141,9 @@ export interface Comment {
   parentId?: number;
   chapterId: string;
   user: string;
+  userAvatar?: string | null;
+  provider?: 'google' | 'github' | null;
+  role?: string | null;
   text: string;
   date: string;
   isUserRegistered: boolean;

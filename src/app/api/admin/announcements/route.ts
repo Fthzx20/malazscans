@@ -5,20 +5,10 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../lib/supabase/server';
-
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+import { requireAdminSession } from '../../../../lib/auth/admin';
 
 export async function GET() {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -49,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

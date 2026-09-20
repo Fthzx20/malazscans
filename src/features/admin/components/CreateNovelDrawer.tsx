@@ -1,7 +1,5 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Upload, Trash2, ChevronDown, ChevronUp, Link as LinkIcon } from 'lucide-react';
 import { useAdminStore } from '../store/adminStore';
 
 interface CreateNovelDrawerProps {
@@ -14,6 +12,11 @@ interface SectionProps {
   children: React.ReactNode;
   defaultOpen?: boolean;
 }
+
+const PRESET_GENRES = [
+  'Action', 'Fantasy', 'Isekai', 'Romance', 'Sci-Fi',
+  'Xianxia', 'Comedy', 'Supernatural', 'Drama', 'Mystery', 'Slice of Life'
+];
 
 const FormSection: React.FC<SectionProps> = ({ title, badge, children, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -56,6 +59,7 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
     editingNovelId,
     resetNovelForm,
     adminNovelTitle, setAdminNovelTitle,
+    adminNovelCustomSlug, setAdminNovelCustomSlug,
     adminNovelAlt, setAdminNovelAlt,
     adminNovelOriginalTitle, setAdminNovelOriginalTitle,
     adminNovelJapaneseTitle, setAdminNovelJapaneseTitle,
@@ -75,6 +79,8 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [coverInputMode, setCoverInputMode] = useState<'upload' | 'url'>('upload');
+  const [urlInput, setUrlInput] = useState('');
 
   // ESC key closes drawer
   useEffect(() => {
@@ -174,6 +180,44 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
               <input type="text" value={adminNovelTitle} onChange={e => setAdminNovelTitle(e.target.value)}
                 placeholder="e.g. Adventure at the Edge of the Red Sunset" className={inputCls} required />
             </div>
+
+            {/* Live Slug Preview & Custom Slug Input */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className={labelCls}>Custom URL Slug (Optional)</label>
+                <span className="text-[9px] font-mono text-[#737373]">Auto-generated if empty</span>
+              </div>
+              <div className="flex items-center">
+                <span className="bg-[#181818] border border-r-0 border-[#2a2a2a] px-3 py-2.5 text-[#737373] text-xs font-mono select-none">
+                  /novel/
+                </span>
+                <input
+                  type="text"
+                  value={adminNovelCustomSlug}
+                  onChange={(e) => setAdminNovelCustomSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                  placeholder={
+                    adminNovelTitle
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-+|-+$/g, '') || 'novel-slug'
+                  }
+                  className={`${inputCls} border-l-0`}
+                />
+              </div>
+              <div className="text-[10px] font-mono text-[#737373] flex items-center gap-1.5 pt-0.5">
+                <span className="text-[#555]">Live URL:</span>
+                <span className="text-[#FF3D00] truncate">
+                  malazscans.com/novel/
+                  {adminNovelCustomSlug.trim() ||
+                    adminNovelTitle
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-+|-+$/g, '') ||
+                    'novel-slug'}
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className={labelCls}>Alternative Title (English)</label>
@@ -230,6 +274,46 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
 
           {/* Section 3: Classification */}
           <FormSection title="Classification">
+            {/* Preset Genre Pills */}
+            <div className="space-y-1.5">
+              <label className={labelCls}>Quick Genre Select</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESET_GENRES.map((genre) => {
+                  const currentList = adminNovelGenres
+                    .split(',')
+                    .map((s) => s.trim().toLowerCase())
+                    .filter(Boolean);
+                  const isSelected = currentList.includes(genre.toLowerCase());
+                  return (
+                    <button
+                      key={genre}
+                      type="button"
+                      onClick={() => {
+                        const rawList = adminNovelGenres
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean);
+                        let updated: string[];
+                        if (isSelected) {
+                          updated = rawList.filter((g) => g.toLowerCase() !== genre.toLowerCase());
+                        } else {
+                          updated = [...rawList, genre];
+                        }
+                        setAdminNovelGenres(updated.join(', '));
+                      }}
+                      className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase border transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#FF3D00]/20 border-[#FF3D00] text-[#FF3D00]'
+                          : 'bg-[#141414] border-[#262626] text-[#A3A3A3] hover:border-[#444] hover:text-white'
+                      }`}
+                    >
+                      {isSelected ? `✓ ${genre}` : `+ ${genre}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className={labelCls}>Genres <span className="text-[#737373] normal-case">(comma separated)</span></label>
@@ -283,39 +367,95 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
                   className="w-20 h-28 object-cover border border-[#262626] flex-shrink-0 mx-auto sm:mx-0"
                 />
                 <div className="flex flex-col gap-2 flex-grow text-center sm:text-left">
-                  <span className="text-xs font-mono text-white font-bold">Cover loaded</span>
-                  <span className="text-[10px] font-mono text-[#737373]">Preview on left/above. Drag a new file to replace, or remove below.</span>
+                  <span className="text-xs font-mono text-white font-bold">Cover image loaded</span>
+                  <span className="text-[10px] font-mono text-[#737373]">Preview on left. Use button below to remove or replace.</span>
                   <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-[10px] font-mono font-bold border border-[#262626] hover:border-[#FF3D00] text-white px-3 py-1.5 bg-transparent cursor-pointer uppercase tracking-wide"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAdminNovelCoverImage('')}
+                      onClick={() => {
+                        setAdminNovelCoverImage('');
+                        setUrlInput('');
+                      }}
                       className="text-[10px] font-mono font-bold border border-red-500/30 hover:border-red-500 text-red-400 px-3 py-1.5 bg-transparent cursor-pointer uppercase tracking-wide flex items-center justify-center gap-1"
                     >
-                      <Trash2 className="w-3 h-3" /> Remove
+                      <Trash2 className="w-3 h-3" /> Remove Cover
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed py-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all px-4 ${
-                  isDragging ? 'border-[#FF3D00] bg-[#FF3D00]/5' : 'border-[#262626] hover:border-[#444]'
-                }`}
-              >
-                <Upload className="w-7 h-7 text-[#444] mb-2" />
-                <span className="text-xs font-mono font-bold text-[#737373] block">Drag & Drop cover image here</span>
-                <span className="text-[10px] font-mono text-[#555] block mt-1">or click to browse — JPG, PNG, WEBP · Max 10MB</span>
+              <div>
+                {/* Mode Selector Tabs */}
+                <div className="flex border-b border-[#262626] mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setCoverInputMode('upload')}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono font-bold uppercase transition-colors border-b-2 -mb-px cursor-pointer ${
+                      coverInputMode === 'upload'
+                        ? 'border-[#FF3D00] text-[#FF3D00] bg-[#FF3D00]/5'
+                        : 'border-transparent text-[#737373] hover:text-white'
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCoverInputMode('url')}
+                    className={`flex items-center gap-1.5 px-4 py-2 text-xs font-mono font-bold uppercase transition-colors border-b-2 -mb-px cursor-pointer ${
+                      coverInputMode === 'url'
+                        ? 'border-[#FF3D00] text-[#FF3D00] bg-[#FF3D00]/5'
+                        : 'border-transparent text-[#737373] hover:text-white'
+                    }`}
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    Direct URL
+                  </button>
+                </div>
+
+                {coverInputMode === 'upload' ? (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed py-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all px-4 ${
+                      isDragging ? 'border-[#FF3D00] bg-[#FF3D00]/5' : 'border-[#262626] hover:border-[#444]'
+                    }`}
+                  >
+                    <Upload className="w-7 h-7 text-[#444] mb-2" />
+                    <span className="text-xs font-mono font-bold text-[#737373] block">Drag & Drop cover image here</span>
+                    <span className="text-[10px] font-mono text-[#555] block mt-1">or click to browse — JPG, PNG, WEBP · Max 10MB</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-4 border border-[#262626] bg-[#0A0A0A]">
+                    <label className={labelCls}>Public Image URL</label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="url"
+                        value={urlInput}
+                        onChange={(e) => setUrlInput(e.target.value)}
+                        placeholder="https://example.com/cover.jpg"
+                        className={`${inputCls} flex-grow`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (urlInput.trim()) {
+                            setAdminNovelCoverImage(urlInput.trim());
+                            setUrlInput('');
+                          }
+                        }}
+                        className="px-5 py-2.5 bg-[#FF3D00] hover:bg-white text-black text-xs font-mono font-black uppercase transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        Load Image
+                      </button>
+                    </div>
+                    <p className="text-[10px] font-mono text-[#737373]">
+                      Provide an HTTPS link to an image file (JPG, PNG, WebP).
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             <input

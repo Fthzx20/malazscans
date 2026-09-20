@@ -6,16 +6,11 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../lib/supabase/server';
+import { getSessionUser } from '../../../../lib/auth/session';
 
 async function getAuthUserId(): Promise<string | null> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id || null;
-  } catch {
-    return null;
-  }
+  const session = await getSessionUser();
+  return session?.userId || null;
 }
 
 export async function GET() {

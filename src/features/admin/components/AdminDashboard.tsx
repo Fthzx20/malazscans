@@ -3,7 +3,7 @@
 import React from 'react';
 import {
   ArrowLeft, LayoutDashboard, BookOpen, FileText, ListCollapse,
-  BarChart2, ShieldAlert, Bell, Plus, Menu, X, ChevronLeft, ChevronRight, Users
+  BarChart2, ShieldAlert, Bell, Plus, Menu, X, ChevronLeft, ChevronRight, Users, Coins
 } from 'lucide-react';
 import { useNovelStore } from '../../novels/store/novelStore';
 import { useAdminStore } from '../store/adminStore';
@@ -16,10 +16,12 @@ import { AnalyticsTab } from './AnalyticsTab';
 import { AdminSettingsTab } from './AdminSettingsTab';
 import { AnnouncementsTab } from './AnnouncementsTab';
 import { UsersTab } from './UsersTab';
+import { CoinsTab } from './CoinsTab';
 import { Chapter } from '../../../types';
 import { convertTextToTiptapJSON } from '../utils/editor';
+import { CONFIG } from '../../../config';
 
-type AdminSubTab = 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users';
+type AdminSubTab = 'dashboard' | 'novels' | 'chapters' | 'coins' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users';
 
 interface NavItem {
   key: AdminSubTab;
@@ -42,11 +44,12 @@ const NAV_GROUPS: NavGroup[] = [
     ]
   },
   {
-    label: 'Community',
+    label: 'Economy & Community',
     items: [
+      { key: 'coins', label: 'Coins & Unlocks', icon: Coins },
+      { key: 'users', label: 'Users', icon: Users },
       { key: 'recommendations', label: 'Recommendations', icon: ListCollapse },
       { key: 'announcements', label: 'Notifications', icon: Bell },
-      { key: 'users', label: 'Users', icon: Users },
     ]
   },
   {
@@ -73,6 +76,8 @@ export const AdminDashboard: React.FC = () => {
     editingChapterId,
     adminChapTitle,
     adminChapContent,
+    adminChapIsLocked,
+    adminChapCoinPrice,
     resetChapterForm,
     setIsNovelDrawerOpen,
     resetNovelForm,
@@ -109,7 +114,14 @@ export const AdminDashboard: React.FC = () => {
         const res = await fetch(`/api/admin/novels/${selectedAdminNovelId}/chapters`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: newChapterId, title: chapterTitle, content: contentToSave, volumeId: useAdminStore.getState().selectedAdminVolumeId || undefined }),
+          body: JSON.stringify({ 
+            id: newChapterId, 
+            title: chapterTitle, 
+            content: contentToSave, 
+            volumeId: useAdminStore.getState().selectedAdminVolumeId || undefined,
+            isLocked: adminChapIsLocked,
+            coinPrice: adminChapCoinPrice,
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -121,7 +133,12 @@ export const AdminDashboard: React.FC = () => {
         const res = await fetch(`/api/admin/chapters/${editingChapterId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: adminChapTitle, content: contentToSave }),
+          body: JSON.stringify({ 
+            title: adminChapTitle, 
+            content: contentToSave,
+            isLocked: adminChapIsLocked,
+            coinPrice: adminChapCoinPrice,
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -171,6 +188,7 @@ export const AdminDashboard: React.FC = () => {
     dashboard: 'Overview',
     novels: 'Novel Management',
     chapters: 'Chapter Management',
+    coins: 'Coin Economy & Transactions',
     recommendations: 'Recommendations',
     announcements: 'Notifications',
     analytics: 'Analytics',
@@ -254,41 +272,71 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {/* ─── Dashboard Header ─── */}
-          <div className="border-b border-[#262626] bg-[#0A0A0A] w-full">
-            <div className="w-full px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
+          <div className="border-b border-[#262626] bg-[#0A0A0A] w-full sticky top-0 z-40 backdrop-blur-md">
+            <div className="w-full px-4 sm:px-8 py-3.5 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 {/* Mobile Hamburger toggle */}
                 <button
                   onClick={() => setIsMobileNavOpen(true)}
-                  className="md:hidden p-2 border border-[#262626] hover:border-[#737373] text-[#737373] hover:text-white bg-transparent cursor-pointer rounded-none"
+                  className="md:hidden p-2 border border-[#262626] hover:border-[#FF3D00] text-[#737373] hover:text-[#FF3D00] bg-transparent cursor-pointer rounded-none transition-colors"
                   title="Open Navigation Menu"
+                  aria-label="Open Navigation Menu"
                 >
                   <Menu className="w-4 h-4" />
                 </button>
                 <div>
-                  <h1 className="text-base sm:text-xl font-black uppercase tracking-tighter text-white font-sans">
-                    Admin Dashboard
-                  </h1>
-                  <p className="text-[9px] sm:text-[10px] text-[#737373] font-mono mt-0.5 hidden xs:block">
-                    Manage novels, chapters, recommendations, notifications, and platform settings.
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base sm:text-lg font-black uppercase tracking-tighter text-white font-sans">
+                      MALAZ<span className="text-[#FF3D00]"> ADMIN</span>
+                    </span>
+                    <span className="text-[9px] font-mono text-[#FF3D00] bg-[#FF3D00]/10 px-1.5 py-0.5 border border-[#FF3D00]/25 font-bold uppercase hidden sm:inline">
+                      v{CONFIG.VERSION}
+                    </span>
+                  </div>
+                  {/* Live Breadcrumbs */}
+                  <div className="flex items-center gap-1.5 text-[10px] text-[#737373] font-mono mt-0.5">
+                    <span>Admin</span>
+                    <span>/</span>
+                    <span className="text-[#A3A3A3]">
+                      {NAV_GROUPS.find(g => g.items.some(i => i.key === adminActiveSubTab))?.label || 'Platform'}
+                    </span>
+                    <span>/</span>
+                    <span className="text-[#FF3D00] font-bold">{TAB_LABELS[adminActiveSubTab]}</span>
+                  </div>
                 </div>
               </div>
+
+              {/* Header Quick Action Buttons */}
               <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    resetChapterForm();
+                    setActiveEditorMode('create');
+                  }}
+                  className="inline-flex items-center gap-1.5 border border-[#FF3D00]/50 text-[#FF3D00] hover:bg-[#FF3D00] hover:text-[#0A0A0A] text-xs font-mono font-bold py-2 px-3 uppercase transition-all cursor-pointer bg-transparent"
+                  title="Write a new chapter"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Write Chapter</span>
+                </button>
+
                 <button
                   onClick={() => {
                     resetNovelForm();
                     setIsNovelDrawerOpen(true);
                     setAdminActiveSubTab('novels');
                   }}
-                  className="inline-flex items-center gap-1.5 bg-[#FF3D00] text-[#0A0A0A] text-xs font-mono font-black py-2.5 px-4 uppercase hover:bg-white transition-colors border-none cursor-pointer"
+                  className="inline-flex items-center gap-1.5 bg-[#FF3D00] text-[#0A0A0A] text-xs font-mono font-black py-2 px-3.5 uppercase hover:bg-white transition-colors border-none cursor-pointer active:scale-95"
+                  title="Register new novel"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span className="hidden xs:inline">New Novel</span>
                 </button>
+
                 <button
                   onClick={() => setCurrentPage('dashboard')}
-                  className="inline-flex items-center gap-1.5 border border-[#333] hover:border-[#737373] text-xs font-mono font-bold uppercase py-2.5 px-3 transition-colors text-[#737373] hover:text-white bg-transparent cursor-pointer"
+                  className="inline-flex items-center gap-1.5 border border-[#333] hover:border-white text-xs font-mono font-bold uppercase py-2 px-3 transition-colors text-[#A3A3A3] hover:text-white bg-transparent cursor-pointer"
+                  title="Exit to public website"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Exit</span>
@@ -302,7 +350,7 @@ export const AdminDashboard: React.FC = () => {
 
             {/* Sidebar (Desktop/Tablet) */}
             <aside className={`hidden md:flex flex-col flex-shrink-0 border-r border-[#1a1a1a] py-6 pr-4 gap-6 transition-all duration-300 ease-in-out ${
-              isSidebarCollapsed ? 'w-16' : 'w-60'
+              isSidebarCollapsed ? 'w-16' : 'w-56'
             }`}>
               
               {/* Collapse/Expand Toggle Button in Sidebar */}
@@ -310,6 +358,7 @@ export const AdminDashboard: React.FC = () => {
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 className="flex items-center justify-center p-1.5 border border-[#262626] hover:border-[#FF3D00] hover:text-[#FF3D00] transition-colors rounded-none bg-transparent text-[#737373] cursor-pointer self-end w-8 h-8"
                 title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
               >
                 {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
               </button>
@@ -333,15 +382,15 @@ export const AdminDashboard: React.FC = () => {
                             key={item.key}
                             onClick={() => setAdminActiveSubTab(item.key)}
                             className={`w-full flex items-center ${
-                              isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2'
+                              isSidebarCollapsed ? 'justify-center py-2.5' : 'gap-2.5 px-3 py-2.5'
                             } text-left text-xs font-mono font-bold border-none cursor-pointer transition-all rounded-none ${
                               isActive
-                                ? 'text-[#FF3D00] bg-[#FF3D00]/8 border-l-2 border-l-[#FF3D00]'
+                                ? 'text-[#FF3D00] bg-[#FF3D00]/10 border-l-2 border-l-[#FF3D00] font-black'
                                 : 'text-[#737373] bg-transparent hover:text-white hover:bg-[#111111]'
                             }`}
                             title={isSidebarCollapsed ? item.label : undefined}
                           >
-                            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                            <Icon className="w-4 h-4 flex-shrink-0" />
                             {!isSidebarCollapsed && <span>{item.label}</span>}
                           </button>
                         );
@@ -355,10 +404,23 @@ export const AdminDashboard: React.FC = () => {
             {/* Main Workspace */}
             <main className="flex-grow py-6 min-w-0 md:pl-6">
               {/* Workspace Header */}
-              <div className="mb-6 pb-4 border-b border-[#1a1a1a]">
-                <h2 className="text-sm font-black uppercase tracking-tight text-white">
-                  {TAB_LABELS[adminActiveSubTab]}
-                </h2>
+              <div className="mb-6 pb-4 border-b border-[#1a1a1a] flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+                <div>
+                  <h2 className="text-base font-black uppercase tracking-tight text-white font-sans">
+                    {TAB_LABELS[adminActiveSubTab]}
+                  </h2>
+                  <p className="text-[10px] text-[#737373] font-mono mt-0.5">
+                    {adminActiveSubTab === 'dashboard' && 'Real-time overview of content, community activity, and system status.'}
+                    {adminActiveSubTab === 'novels' && 'Manage light novel titles, metadata, genres, and cover artwork.'}
+                    {adminActiveSubTab === 'chapters' && 'Organize volumes and write, edit, or publish novel chapters.'}
+                    {adminActiveSubTab === 'coins' && 'Monitor user coin balances, Midtrans top-ups, and chapter unlock ledgers.'}
+                    {adminActiveSubTab === 'recommendations' && 'Curate featured novels and carousel order for the homepage.'}
+                    {adminActiveSubTab === 'announcements' && 'Broadcast site announcements, maintenance alerts, and release notices.'}
+                    {adminActiveSubTab === 'analytics' && 'Detailed reader retention, view statistics, and engagement trends.'}
+                    {adminActiveSubTab === 'users' && 'Manage user accounts, roles, permissions, and moderation status.'}
+                    {adminActiveSubTab === 'settings' && 'Configure database connections, storage credentials, and platform options.'}
+                  </p>
+                </div>
               </div>
 
               {/* Tab Panels */}
@@ -366,6 +428,7 @@ export const AdminDashboard: React.FC = () => {
                 {adminActiveSubTab === 'dashboard' && <OverviewTab />}
                 {adminActiveSubTab === 'novels' && <ManageNovelsTab />}
                 {adminActiveSubTab === 'chapters' && <ManageChaptersTab handleDeleteChapter={handleDeleteChapter} />}
+                {adminActiveSubTab === 'coins' && <CoinsTab />}
                 {adminActiveSubTab === 'recommendations' && <RecommendationsTab />}
                 {adminActiveSubTab === 'announcements' && <AnnouncementsTab />}
                 {adminActiveSubTab === 'analytics' && <AnalyticsTab />}

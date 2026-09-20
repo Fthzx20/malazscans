@@ -12,6 +12,7 @@ import { NovelMentionRenderer } from '../../novels/components/NovelMentionRender
 import { commentSchema, CommentInput } from '../types';
 import { LinkPreviewCard } from '../../../components/links';
 import { Comment } from '../../../types';
+import { isAdmin } from '../../../types/auth';
 import { CONFIG } from '../../../config';
 
 interface CommentSectionProps {
@@ -85,7 +86,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
     }));
   };
 
-  const sortedComments = sortComments(comments);
+  const sortedComments = React.useMemo(() => {
+    return sortComments(comments);
+  }, [comments, sortBy]);
 
   // Render text and parse @mentions, [[Novel Links]], and URLs
   const formatTextWithUrls = (txt: string) => {
@@ -195,6 +198,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
   const CommentNode: React.FC<CommentNodeProps> = ({ comm, level }) => {
     const [replying, setReplying] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
     const [replyUser, setReplyUser] = useState(currentUser ? currentUser.username : '');
     const [replyText, setReplyText] = useState('');
     const [editText, setEditText] = useState(comm.text);
@@ -206,8 +210,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
     }, [currentUser]);
 
     const isAuthor = currentUser && (currentUser.username === comm.user);
-    const isAdmin = currentUser && (currentUser.email === CONFIG.ADMIN_EMAIL);
-    const canModify = isAuthor || isAdmin;
+    const userIsAdmin = currentUser ? isAdmin(currentUser) : false;
+    const canModify = isAuthor || userIsAdmin;
 
     const handlePostReply = (e: React.FormEvent) => {
       e.preventDefault();
@@ -229,19 +233,53 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
     const hasLiked = currentUser && comm.reactions?.likes?.includes(currentUser.username);
     const hasHearted = currentUser && comm.reactions?.hearts?.includes(currentUser.username);
 
+    const { parsedContent, detectedUrls } = React.useMemo(() => {
+      const rawText = typeof comm.text === 'string' ? comm.text : '';
+      const urlRegex = /(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi;
+      const urls = rawText.match(urlRegex) || [];
+      const hasUrls = urls.length > 0;
+
+      let renderedText: React.ReactNode = null;
+      if (!hasUrls) {
+        renderedText = parseCommentText(rawText);
+      } else {
+        const cleanText = rawText.replace(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi, '').replace(/\s{2,}/g, ' ').trim();
+        renderedText = cleanText ? parseCommentText(cleanText) : null;
+      }
+
+      return { parsedContent: renderedText, detectedUrls: urls };
+    }, [comm.text]);
+
     return (
-      <div className={`space-y-3 ${level > 0 ? `border-l ${themeStyles.border} pl-4 sm:pl-6 ml-1 sm:ml-2` : ''}`}>
-        <div className={`border ${themeStyles.border} p-4 ${themeStyles.cardBg} space-y-3 hover:border-current/30 transition-colors`}>
+      <div className={`space-y-3 ${level > 0 ? 'ml-3 sm:ml-6 pl-3 border-l-2 border-[#FF3D00]/30' : ''}`}>
+        <div className={`p-4 border ${themeStyles.border} ${themeStyles.cardBg} space-y-3 text-current transition-colors`}>
           {/* Header */}
           <div className={`flex justify-between items-center text-[10px] font-mono ${themeStyles.accentText}`}>
-            <span className="font-extrabold text-[#FF3D00] uppercase flex items-center gap-1.5 truncate">
-              {comm.user}
-              {comm.isUserRegistered && (
-                <span className="bg-[#FF3D00]/10 text-[#FF3D00] text-[8px] px-1.5 py-0.2 uppercase font-mono tracking-wider flex items-center gap-0.5 border border-[#FF3D00]/30">
-                  <ShieldCheck className="w-2.5 h-2.5" /> Verified
-                </span>
-              )}
-            </span>
+            <div className="flex items-center gap-2.5 truncate">
+              {/* Commenter Avatar */}
+              <div className="w-6 h-6 border border-[#262626] bg-[#151515] flex-shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-bold text-white">
+                {comm.userAvatar ? (
+                  <img src={comm.userAvatar} alt={comm.user} className="w-full h-full object-cover" />
+                ) : (
+                  <span>{comm.user.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+
+              <span className="font-extrabold text-[#FF3D00] uppercase flex items-center gap-1.5 truncate">
+                {comm.user}
+                {comm.isUserRegistered && (
+                  <span className="bg-[#FF3D00]/10 text-[#FF3D00] text-[8px] px-1.5 py-0.5 uppercase font-mono tracking-wider flex items-center gap-0.5 border border-[#FF3D00]/30 font-bold">
+                    <ShieldCheck className="w-2.5 h-2.5" />
+                    {comm.provider ? `✓ ${comm.provider}` : 'Verified'}
+                  </span>
+                )}
+                {comm.role === 'admin' && (
+                  <span className="bg-red-500/20 text-red-400 border border-red-500/40 text-[8px] px-1.5 py-0.5 font-bold uppercase">
+                    Admin
+                  </span>
+                )}
+              </span>
+            </div>
             <span className="flex-shrink-0">{comm.date}</span>
           </div>
 
@@ -273,30 +311,16 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
           ) : (
             <>
               <p className="text-xs sm:text-sm text-current leading-relaxed break-words whitespace-pre-wrap">
-                {(() => {
-                  // If comment has URLs, render text with URLs hidden (replaced by domain badge)
-                  const rawText = typeof comm.text === 'string' ? comm.text : '';
-                  const urlRegex = /(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi;
-                  const hasUrls = urlRegex.test(rawText);
-                  if (!hasUrls) return parseCommentText(rawText);
-                  // Strip URLs from display text, show clean text only
-                  const cleanText = rawText.replace(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi, '').replace(/\s{2,}/g, ' ').trim();
-                  return cleanText ? parseCommentText(cleanText) : null;
-                })()}
+                {parsedContent}
               </p>
               {/* Link preview cards for detected URLs */}
-              {(() => {
-                const rawText = typeof comm.text === 'string' ? comm.text : '';
-                const urls = rawText.match(/(?:https?:\/\/|www\.)[^\s<>)"'\]]+/gi);
-                if (!urls || urls.length === 0) return null;
-                return (
-                  <div className="mt-2 space-y-1.5">
-                    {urls.slice(0, 3).map((u, i) => (
-                      <LinkPreviewCard key={`${u}-${i}`} url={u.startsWith('http') ? u : `https://${u}`} size="medium" />
-                    ))}
-                  </div>
-                );
-              })()}
+              {detectedUrls.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {detectedUrls.slice(0, 3).map((u, i) => (
+                    <LinkPreviewCard key={`${u}-${i}`} url={u.startsWith('http') ? u : `https://${u}`} size="medium" />
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -351,14 +375,36 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Edit</span>
                   </button>
-                  <button
-                    onClick={() => deleteComment(comm.id)}
-                    className="flex items-center gap-1 hover:text-red-400 text-red-500 bg-transparent border-none cursor-pointer p-0 font-mono text-[10px]"
-                    title="Delete Comment"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
-                  </button>
+
+                  {confirmDelete ? (
+                    <div className="flex items-center gap-1.5 bg-red-950/40 border border-red-500/40 px-2 py-0.5 animate-in fade-in">
+                      <span className="text-[10px] text-red-400 font-mono">Delete?</span>
+                      <button
+                        onClick={() => {
+                          deleteComment(comm.id);
+                          setConfirmDelete(false);
+                        }}
+                        className="text-red-400 hover:text-white font-bold text-[10px] uppercase font-mono px-1.5 py-0.5 bg-red-600/30 hover:bg-red-600 border-none cursor-pointer transition-colors"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete(false)}
+                        className="text-neutral-400 hover:text-white text-[10px] uppercase font-mono px-1 py-0.5 bg-transparent border-none cursor-pointer transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(true)}
+                      className="flex items-center gap-1 hover:text-red-400 text-red-500 bg-transparent border-none cursor-pointer p-0 font-mono text-[10px]"
+                      title="Delete Comment"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -420,7 +466,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
   };
 
   return (
-    <section id="komentar" className={`border-t ${themeStyles.border} pt-12 space-y-6`}>
+    <section id="comments" className={`border-t ${themeStyles.border} pt-12 space-y-6`}>
       {/* Header bar with sorting */}
       <div className={`flex items-center justify-between border-b ${themeStyles.border} pb-3`}>
         <div className="flex items-center space-x-2">
@@ -497,7 +543,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({ chapterId }) => 
       </div>
 
       {/* Render Comment Tree List */}
-      <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
+      <div className="space-y-6">
         {sortedComments.length > 0 ? (
           sortedComments.map((comm) => (
             <CommentNode key={comm.id} comm={comm} level={0} />

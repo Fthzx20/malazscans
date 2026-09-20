@@ -14,20 +14,12 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
-import { createServerSupabaseClient } from '../../../../lib/supabase/server';
+import { requireAdminSession } from '../../../../lib/auth/admin';
 
-async function isAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.user_metadata?.role === 'admin';
-  } catch {
-    return false;
-  }
-}
+
 
 export async function GET(request: Request) {
-  if (!(await isAdmin())) {
+  if (!(await requireAdminSession())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -63,6 +55,8 @@ export async function GET(request: Request) {
           role: true,
           status: true,
           avatar: true,
+          provider: true,
+          coins: true,
           createdAt: true,
           lastLoginAt: true,
           _count: {
@@ -100,6 +94,8 @@ export async function GET(request: Request) {
         role: u.role,
         status: u.status,
         avatar: u.avatar,
+        provider: u.provider || 'local',
+        coins: u.coins || 0,
         createdAt: u.createdAt.toISOString(),
         lastLoginAt: u.lastLoginAt?.toISOString() || null,
         commentsCount: u._count.comments,

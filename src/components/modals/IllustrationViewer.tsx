@@ -34,6 +34,7 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
 
   const draggedRef = useRef(false);
   const modalRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
   const activeItem = illustrations[activeIndex];
 
   const [prevActiveIndex, setPrevActiveIndex] = useState(activeIndex);
@@ -50,6 +51,7 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
 
     return () => {
       document.body.style.overflow = '';
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -59,8 +61,10 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
       if (e.key === 'Escape') {
         onClose();
       } else if (e.key === 'ArrowLeft' && activeIndex > 0) {
+        e.preventDefault();
         onNavigate(activeIndex - 1);
       } else if (e.key === 'ArrowRight' && activeIndex < illustrations.length - 1) {
+        e.preventDefault();
         onNavigate(activeIndex + 1);
       }
     };
@@ -107,14 +111,18 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
       draggedRef.current = true;
     }
 
-    setPosition({
-      x: nextX,
-      y: nextY,
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(() => {
+      setPosition({
+        x: nextX,
+        y: nextY,
+      });
     });
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
   };
 
   // Touch handlers for mobile pan
@@ -140,15 +148,19 @@ export const IllustrationViewer: React.FC<IllustrationViewerProps> = ({
         draggedRef.current = true;
       }
 
-      setPosition({
-        x: nextX,
-        y: nextY,
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        setPosition({
+          x: nextX,
+          y: nextY,
+        });
       });
     }
   };
 
   const handleTouchEnd = () => {
     setIsDragging(false);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
   };
 
   // Prevent closing when clicking inner content controls

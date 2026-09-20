@@ -135,13 +135,14 @@ export const NotificationModal: React.FC = () => {
     <div 
       className="fixed inset-0 w-screen h-screen bg-black/85 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto"
       onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="notification-modal-title"
-      aria-describedby="notification-modal-content"
+      aria-hidden="false"
     >
       <div 
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notification-modal-title"
+        aria-describedby="notification-modal-content"
         className={`w-full max-w-md ${themeStyles.cardBg} border ${themeStyles.border} p-6 sm:p-8 space-y-6 relative text-current shadow-2xl focus:outline-none`}
         tabIndex={-1}
       >
@@ -194,7 +195,7 @@ export const NotificationModal: React.FC = () => {
         </div>
 
         <div className={`pt-4 flex justify-between items-center text-[10px] font-mono ${themeStyles.accentText} border-t ${themeStyles.border}`}>
-          <span>
+          <span aria-live="polite">
             {activeNotification.autoClose ? `Auto-closing in ${timeLeft !== null ? timeLeft : (activeNotification.autoCloseSeconds || 10)}s...` : 'Notice Board'}
           </span>
           <button

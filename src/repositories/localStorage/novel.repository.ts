@@ -13,12 +13,16 @@ const STORAGE_KEY = 'kult_novels_prod';
 export class LocalStorageNovelRepository implements INovelRepository {
   getAll(): Novel[] {
     if (!isClient()) return INITIAL_NOVELS_DATA;
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_NOVELS_DATA));
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      if (!data) {
+        this.save(INITIAL_NOVELS_DATA);
+        return INITIAL_NOVELS_DATA;
+      }
+      return JSON.parse(data);
+    } catch {
       return INITIAL_NOVELS_DATA;
     }
-    return JSON.parse(data);
   }
 
   getById(id: string): Novel | null {
@@ -28,7 +32,29 @@ export class LocalStorageNovelRepository implements INovelRepository {
 
   save(novels: Novel[]): void {
     if (!isClient()) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(novels));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(novels));
+    } catch {
+      // If full novels (including long chapter texts) exceed localStorage quota,
+      // save lightweight catalog metadata without heavy manuscript content
+      try {
+        const lightweightNovels = novels.map((novel) => ({
+          ...novel,
+          volumes: (novel.volumes || []).map((vol) => ({
+            ...vol,
+            chapters: (vol.chapters || []).map((ch) => ({
+              id: ch.id,
+              title: ch.title,
+              publishDate: ch.publishDate,
+              content: '', // Omit heavy manuscript text from catalog cache
+            })),
+          })),
+        }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweightNovels));
+      } catch (err) {
+        console.warn('LocalStorage quota exceeded. Novel catalog cache truncated.', err);
+      }
+    }
   }
 
   create(novel: Novel): void {

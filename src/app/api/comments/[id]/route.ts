@@ -6,11 +6,17 @@
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../../lib/prisma';
+import { getSessionUser } from '../../../../lib/auth/session';
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+  }
+
   const { id } = await params;
   const commentId = parseInt(id);
 
@@ -19,6 +25,31 @@ export async function PATCH(
   }
 
   try {
+    const existingComment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, userId: true, username: true, isUserRegistered: true },
+    });
+
+    if (!existingComment) {
+      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+    }
+
+    const isAdmin =
+      session.role === 'admin' ||
+      (Boolean(process.env.ADMIN_EMAIL) && session.email === process.env.ADMIN_EMAIL) ||
+      (Boolean(process.env.NEXT_PUBLIC_ADMIN_EMAIL) && session.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+
+    const isOwner =
+      (existingComment.userId && existingComment.userId === session.userId) ||
+      (existingComment.isUserRegistered && existingComment.username === session.username);
+
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: 'Forbidden. You do not have permission to edit this comment.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { text } = body;
 
@@ -152,6 +183,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getSessionUser();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized. Please log in.' }, { status: 401 });
+  }
+
   const { id } = await params;
   const commentId = parseInt(id);
 
@@ -160,6 +196,31 @@ export async function DELETE(
   }
 
   try {
+    const existingComment = await prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { id: true, userId: true, username: true, isUserRegistered: true },
+    });
+
+    if (!existingComment) {
+      return NextResponse.json({ error: 'Comment not found' }, { status: 404 });
+    }
+
+    const isAdmin =
+      session.role === 'admin' ||
+      (Boolean(process.env.ADMIN_EMAIL) && session.email === process.env.ADMIN_EMAIL) ||
+      (Boolean(process.env.NEXT_PUBLIC_ADMIN_EMAIL) && session.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+
+    const isOwner =
+      (existingComment.userId && existingComment.userId === session.userId) ||
+      (existingComment.isUserRegistered && existingComment.username === session.username);
+
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: 'Forbidden. You do not have permission to delete this comment.' },
+        { status: 403 }
+      );
+    }
+
     await prisma.comment.delete({ where: { id: commentId } });
     return NextResponse.json({ success: true });
   } catch (error) {

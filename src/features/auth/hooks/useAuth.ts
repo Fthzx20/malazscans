@@ -1,79 +1,67 @@
 import { useAuthStore } from '../store/authStore';
 import { useNovelStore } from '../../novels/store/novelStore';
-import { SupabaseAuthRepository } from '../../../repositories/supabase';
+import { useCoinStore } from '../../coins/store/coinStore';
 import { isAdmin } from '../../../types/auth';
-import { createClient } from '../../../lib/supabase/client';
-
-// Direct access to the Supabase auth repository for async methods
-const supabaseAuth = new SupabaseAuthRepository();
 
 export const useAuth = () => {
   const { currentUser, showAuthModal, setCurrentUser, setShowAuthModal, logout: storeLogout } = useAuthStore();
   const triggerToast = useNovelStore((state) => state.triggerToast);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const result = await supabaseAuth.loginAsync({ email, password });
-
-    if (result.success && result.user) {
-      setCurrentUser({
-        username: result.user.username,
-        email: result.user.email,
-        avatar: result.user.avatar,
+  /**
+   * Dev Login simulation for local testing without OAuth provider setup
+   */
+  const devLogin = async (role: 'user' | 'admin' = 'user'): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
       });
-      const greeting = isAdmin(result.user)
-        ? "Welcome back, Admin."
-        : `Hello, ${result.user.username}!`;
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        triggerToast(data.error || 'Failed to sign in via dev mode');
+        return false;
+      }
+
+      setCurrentUser({
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        avatar: data.user.avatar,
+        role: data.user.role,
+      });
+
+      if (typeof data.user.coins === 'number') {
+        useCoinStore.getState().setCoins(data.user.coins);
+      }
+
+      const greeting = isAdmin(data.user)
+        ? 'Sign in successful: Admin Mode Active'
+        : `Welcome back, ${data.user.username}!`;
+      
       triggerToast(greeting);
       setShowAuthModal(null);
       return true;
-    } else {
-      triggerToast(result.error || "Invalid email or password.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error occurred';
+      triggerToast(msg);
       return false;
     }
-  };
-
-  const register = async (username: string, email: string, password: string): Promise<boolean> => {
-    const result = await supabaseAuth.registerAsync({ username, email, password });
-
-    if (result.success) {
-      triggerToast("Account created! Check your email to confirm your account.");
-      setShowAuthModal('login');
-      return true;
-    } else {
-      triggerToast(result.error || "Registration failed.");
-      return false;
-    }
-  };
-
-  const forgotPassword = async (email: string): Promise<boolean> => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
-
-    if (error) {
-      triggerToast(error.message || "Failed to send reset link.");
-      return false;
-    }
-
-    triggerToast("Password reset link sent! Check your email inbox.");
-    return true;
   };
 
   const logout = async () => {
-    await supabaseAuth.logoutAsync();
-    storeLogout();
-    triggerToast("Logged out successfully.");
+    await storeLogout();
+    triggerToast('Successfully signed out.');
   };
 
   return {
     currentUser,
     showAuthModal,
     setShowAuthModal,
-    login,
-    register,
-    forgotPassword,
-    logout
+    devLogin,
+    logout,
   };
 };
+
 export default useAuth;

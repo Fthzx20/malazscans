@@ -1,11 +1,6 @@
 /**
  * Repository interfaces — abstract data access layer.
- * 
- * Current implementation: localStorage (see ./localStorage/)
- * Target implementation: Supabase (see ./supabase/ — to be created during migration)
- * 
  * All stores and hooks consume these interfaces, not the implementation directly.
- * Swapping localStorage → Supabase requires only changing the factory export.
  */
 
 import { Novel, Chapter, Volume, Comment, ReadingHistory, ReaderSettings, Recommendation, Notification } from '../types';

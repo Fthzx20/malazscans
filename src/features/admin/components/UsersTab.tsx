@@ -10,6 +10,8 @@ interface UserRow {
   role: string;
   status: string;
   avatar: string | null;
+  provider: string;
+  coins: number;
   createdAt: string;
   lastLoginAt: string | null;
   commentsCount: number;
@@ -184,7 +186,8 @@ export const UsersTab: React.FC = () => {
             <thead className="border-b border-[#262626] text-[9px] text-[#737373] uppercase font-bold">
               <tr>
                 <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Email</th>
+                <th className="px-4 py-3 hidden sm:table-cell">Email / Provider</th>
+                <th className="px-4 py-3">Coins</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 hidden lg:table-cell">Registered</th>
@@ -210,7 +213,15 @@ export const UsersTab: React.FC = () => {
                       <span className="text-white font-bold truncate max-w-[120px]">{user.username}</span>
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-[#737373] hidden sm:table-cell">{user.email}</td>
+                  <td className="px-4 py-3 text-[#737373] hidden sm:table-cell">
+                    <div className="text-white text-xs">{user.email}</div>
+                    <span className="text-[9px] uppercase font-bold text-[#737373]">
+                      via {user.provider || 'local'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-bold text-amber-400">
+                    {(user.coins || 0).toLocaleString()}
+                  </td>
                   <td className="px-4 py-3">
                     <select
                       value={user.role}

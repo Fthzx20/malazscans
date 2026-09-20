@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 interface AdminState {
-  adminActiveSubTab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users';
+  adminActiveSubTab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users' | 'coins';
   editingNovelId: string | null;
   editingChapterId: string | null;
   activeEditorMode: 'create' | 'edit' | null;
@@ -13,6 +13,7 @@ interface AdminState {
   
   // Expanded Novel Form inputs
   adminNovelTitle: string;
+  adminNovelCustomSlug: string;
   adminNovelAlt: string;
   adminNovelOriginalTitle: string;
   adminNovelJapaneseTitle: string;
@@ -27,13 +28,15 @@ interface AdminState {
   adminNovelSchedule: string;
   adminNovelIsRecommended: boolean;
   adminNovelSynopsis: string;
-  adminNovelCoverImage: string; // Base64 data string
+  adminNovelCoverImage: string; // Base64 or URL data string
 
   // Chapter Form inputs
   adminChapTitle: string;
   adminChapContent: string;
+  adminChapIsLocked: boolean;
+  adminChapCoinPrice: number;
 
-  setAdminActiveSubTab: (tab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users') => void;
+  setAdminActiveSubTab: (tab: 'dashboard' | 'novels' | 'chapters' | 'recommendations' | 'analytics' | 'settings' | 'announcements' | 'users' | 'coins') => void;
   setEditingNovelId: (id: string | null) => void;
   setEditingChapterId: (id: string | null) => void;
   setActiveEditorMode: (mode: 'create' | 'edit' | null) => void;
@@ -45,6 +48,7 @@ interface AdminState {
   
   // Novel Form setters
   setAdminNovelTitle: (val: string) => void;
+  setAdminNovelCustomSlug: (val: string) => void;
   setAdminNovelAlt: (val: string) => void;
   setAdminNovelOriginalTitle: (val: string) => void;
   setAdminNovelJapaneseTitle: (val: string) => void;
@@ -64,6 +68,8 @@ interface AdminState {
   // Chapter Form setters
   setAdminChapTitle: (val: string) => void;
   setAdminChapContent: (val: string) => void;
+  setAdminChapIsLocked: (val: boolean) => void;
+  setAdminChapCoinPrice: (val: number) => void;
 
   resetNovelForm: () => void;
   resetChapterForm: () => void;
@@ -81,6 +87,7 @@ export const useAdminStore = create<AdminState>((set) => ({
   isMobileNavOpen: false,
 
   adminNovelTitle: '',
+  adminNovelCustomSlug: '',
   adminNovelAlt: '',
   adminNovelOriginalTitle: '',
   adminNovelJapaneseTitle: '',
@@ -99,6 +106,8 @@ export const useAdminStore = create<AdminState>((set) => ({
 
   adminChapTitle: '',
   adminChapContent: '',
+  adminChapIsLocked: false,
+  adminChapCoinPrice: 5,
 
   setAdminActiveSubTab: (tab) => set({ adminActiveSubTab: tab }),
   setEditingNovelId: (id) => set({ editingNovelId: id }),
@@ -111,6 +120,7 @@ export const useAdminStore = create<AdminState>((set) => ({
   setIsMobileNavOpen: (open) => set({ isMobileNavOpen: open }),
 
   setAdminNovelTitle: (val) => set({ adminNovelTitle: val }),
+  setAdminNovelCustomSlug: (val) => set({ adminNovelCustomSlug: val }),
   setAdminNovelAlt: (val) => set({ adminNovelAlt: val }),
   setAdminNovelOriginalTitle: (val) => set({ adminNovelOriginalTitle: val }),
   setAdminNovelJapaneseTitle: (val) => set({ adminNovelJapaneseTitle: val }),
@@ -129,11 +139,14 @@ export const useAdminStore = create<AdminState>((set) => ({
 
   setAdminChapTitle: (val) => set({ adminChapTitle: val }),
   setAdminChapContent: (val) => set({ adminChapContent: val }),
+  setAdminChapIsLocked: (val) => set({ adminChapIsLocked: val }),
+  setAdminChapCoinPrice: (val) => set({ adminChapCoinPrice: val }),
 
   resetNovelForm: () => set({
     editingNovelId: null,
     isNovelDrawerOpen: false,
     adminNovelTitle: '',
+    adminNovelCustomSlug: '',
     adminNovelAlt: '',
     adminNovelOriginalTitle: '',
     adminNovelJapaneseTitle: '',
@@ -155,6 +168,8 @@ export const useAdminStore = create<AdminState>((set) => ({
     editingChapterId: null,
     adminChapTitle: '',
     adminChapContent: '',
+    adminChapIsLocked: false,
+    adminChapCoinPrice: 5,
   })
 }));
 

@@ -1,6 +1,6 @@
 /**
  * Role-based authentication types.
- * Designed for Supabase Auth migration (RLS-compatible).
+ * Powered by HMAC-SHA256 encrypted cookies and Neon PostgreSQL.
  */
 
 export type UserRole = 'admin' | 'reader' | 'guest';
@@ -11,6 +11,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   avatar?: string;
+  provider?: 'google' | 'github' | null;
   createdAt?: string;
 }
 
@@ -39,7 +40,6 @@ export interface AuthResult {
 
 /**
  * Permission definitions for role-based access control.
- * Maps to Supabase RLS policies once migrated.
  */
 export const PERMISSIONS = {
   admin: [
@@ -71,6 +71,7 @@ export function hasPermission(role: UserRole, permission: string): boolean {
   return (PERMISSIONS[role] as readonly string[]).includes(permission);
 }
 
-export function isAdmin(user: AuthUser | null): boolean {
-  return user?.role === 'admin';
+export function isAdmin(user: AuthUser | { role?: string; email?: string } | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin' || (!!process.env.NEXT_PUBLIC_ADMIN_EMAIL && user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
 }

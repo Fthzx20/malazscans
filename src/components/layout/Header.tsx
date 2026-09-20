@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bookmark, User, LogIn, LogOut, Menu, X, Settings, Shield } from 'lucide-react';
+import { Bookmark, User, LogIn, LogOut, Menu, X, Settings, Shield, Coins } from 'lucide-react';
 import { useNovelStore } from '../../features/novels/store/novelStore';
 import { useLibraryStore } from '../../features/library/store/libraryStore';
 import { useAuthStore } from '../../features/auth/store/authStore';
 import { useReaderStore } from '../../features/reader/store/readerStore';
+import { useCoinStore } from '../../features/coins/store/coinStore';
 import { getThemeStyles } from '../../features/reader/utils/theme';
 import { CONFIG } from '../../config';
+import { isAdmin } from '../../types/auth';
 
 interface HeaderProps {
   mobileMenuOpen: boolean;
@@ -22,21 +24,32 @@ export const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, setMobileMenuOpe
   const setShowAuthModal = useAuthStore((state) => state.setShowAuthModal);
   const readerSettings = useReaderStore((state) => state.readerSettings);
   const triggerToast = useNovelStore((state) => state.triggerToast);
+  const userCoins = useCoinStore((state) => state.userCoins);
+  const openWallet = useCoinStore((state) => state.openWallet);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const themeStyles = getThemeStyles(readerSettings.theme);
 
-  // Close dropdown on click outside
+  // Close dropdown on click outside or Escape key
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setDropdownOpen(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -87,43 +100,85 @@ export const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, setMobileMenuOpe
         </nav>
 
         {/* Level 3: User Actions (No duplicates, dropdown-driven) */}
-        <div className="flex items-center space-x-3 text-current">
+        <div className="flex items-center space-x-2 sm:space-x-3 text-current">
           
+          {/* Coin Wallet Button */}
+          <button
+            onClick={() => openWallet()}
+            aria-label="Open Coin Wallet"
+            title={`Coin Balance: ${userCoins}`}
+            className={`flex items-center space-x-1.5 border ${themeStyles.border} h-10 sm:h-11 px-2.5 sm:px-3 ${themeStyles.cardBg} text-amber-400 hover:border-amber-400 hover:bg-amber-400/10 transition-all cursor-pointer rounded-none font-mono`}
+          >
+            <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400 shrink-0" />
+            <span className="text-xs font-black tracking-tight">{userCoins.toLocaleString()}</span>
+          </button>
+
           {currentUser ? (
             <div className="relative" ref={dropdownRef}>
               {/* User Avatar Action Card */}
               <button 
+                id="user-menu-button"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className={`flex items-center space-x-2 border ${themeStyles.border} h-11 px-3 ${themeStyles.cardBg} text-current hover:border-[#FF3D00] transition-all cursor-pointer rounded-none`}
+                aria-expanded={dropdownOpen}
+                aria-haspopup="true"
+                aria-controls="user-menu-dropdown"
+                aria-label={`User account menu for ${currentUser.username}`}
+                title={currentUser.username}
+                className={`flex items-center space-x-1.5 sm:space-x-2 border ${themeStyles.border} h-10 sm:h-11 px-2 sm:px-3 ${themeStyles.cardBg} text-current hover:border-[#FF3D00] transition-all cursor-pointer rounded-none`}
               >
                 {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt="Avatar" className={`w-5 h-5 rounded-full object-cover border ${themeStyles.border}`} />
+                  <img src={currentUser.avatar} alt={`${currentUser.username}'s avatar`} className={`w-5 h-5 rounded-full object-cover border ${themeStyles.border}`} />
                 ) : (
                   <User className="w-4 h-4 text-[#FF3D00]" />
                 )}
-                <span className="text-xs font-mono font-bold max-w-[80px] truncate">{currentUser.username}</span>
+                <span className="text-xs font-mono font-bold max-w-[80px] sm:max-w-[100px] truncate hidden sm:inline">{currentUser.username}</span>
               </button>
 
               {/* Popover Dropdown Menu */}
               {dropdownOpen && (
-                <div className={`absolute right-0 mt-2 w-56 border ${themeStyles.border} ${themeStyles.cardBg} text-current font-mono text-xs shadow-2xl divide-y divide-current/10 z-50`}>
+                <div 
+                  id="user-menu-dropdown"
+                  role="menu"
+                  aria-labelledby="user-menu-button"
+                  className={`absolute right-0 mt-2 w-56 border ${themeStyles.border} ${themeStyles.cardBg} text-current font-mono text-xs shadow-2xl divide-y divide-current/10 z-50`}
+                >
                   <div className="p-3 space-y-1">
                     <span className={`text-[9px] ${themeStyles.accentText} uppercase font-bold block`}>Logged In As</span>
                     <span className="font-bold text-current block truncate">{currentUser.username}</span>
                     <span className={`text-[10px] ${themeStyles.accentText} block truncate`}>{currentUser.email}</span>
                   </div>
                   
-                  <div className="py-1">
+                  <div className="py-1" role="none">
                     <button 
+                      role="menuitem"
+                      onClick={() => { setCurrentPage('profile'); setDropdownOpen(false); }}
+                      className="w-full px-4 py-2.5 text-left hover:bg-[#FF3D00] hover:text-[#0A0A0A] flex items-center gap-2 transition-colors bg-transparent border-none cursor-pointer text-current"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Reader Profile</span>
+                    </button>
+
+                    <button 
+                      role="menuitem"
+                      onClick={() => { openWallet(); setDropdownOpen(false); }}
+                      className="w-full px-4 py-2.5 text-left hover:bg-amber-400 hover:text-black flex items-center gap-2 transition-colors bg-transparent border-none cursor-pointer text-amber-400"
+                    >
+                      <Coins className="w-4 h-4" />
+                      <span>Coin Wallet ({userCoins.toLocaleString()})</span>
+                    </button>
+
+                    <button 
+                      role="menuitem"
                       onClick={() => { setCurrentPage('settings'); setDropdownOpen(false); }}
                       className="w-full px-4 py-2.5 text-left hover:bg-[#FF3D00] hover:text-[#0A0A0A] flex items-center gap-2 transition-colors bg-transparent border-none cursor-pointer text-current"
                     >
                       <Settings className="w-4 h-4" />
-                      <span>Settings & Profile</span>
+                      <span>Reading Settings</span>
                     </button>
                     
-                    {currentUser.email === CONFIG.ADMIN_EMAIL && (
+                    {isAdmin(currentUser) && (
                       <button 
+                        role="menuitem"
                         onClick={() => { setCurrentPage('admin'); setDropdownOpen(false); }}
                         className="w-full px-4 py-2.5 text-left hover:bg-[#FF3D00] hover:text-[#0A0A0A] flex items-center gap-2 transition-colors bg-transparent border-none cursor-pointer text-[#FF3D00]"
                       >
@@ -133,8 +188,9 @@ export const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, setMobileMenuOpe
                     )}
                   </div>
 
-                  <div className="py-1">
+                  <div className="py-1" role="none">
                     <button 
+                      role="menuitem"
                       onClick={handleLogout}
                       className="w-full px-4 py-2.5 text-left hover:bg-red-600 hover:text-white flex items-center gap-2 transition-colors bg-transparent border-none cursor-pointer text-red-500"
                     >
@@ -148,17 +204,29 @@ export const Header: React.FC<HeaderProps> = ({ mobileMenuOpen, setMobileMenuOpe
           ) : (
             <button 
               onClick={() => setShowAuthModal('login')}
-              className="h-11 px-5 flex items-center justify-center space-x-1.5 border border-[#FF3D00] text-xs font-mono font-black uppercase text-[#FF3D00] bg-[#FF3D00]/5 hover:bg-[#FF3D00] hover:text-[#0A0A0A] transition-all cursor-pointer rounded-none"
+              className="h-10 sm:h-11 px-3 sm:px-5 flex items-center justify-center space-x-1.5 border border-[#FF3D00] text-xs font-mono font-black uppercase text-[#FF3D00] bg-[#FF3D00]/5 hover:bg-[#FF3D00] hover:text-[#0A0A0A] transition-all cursor-pointer rounded-none"
             >
-              <LogIn className="w-4 h-4 flex-shrink-0" />
-              <span>Log In</span>
+              <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Log In</span>
             </button>
           )}
+
+          {/* Universal Settings Button */}
+          <button
+            onClick={() => setCurrentPage('settings')}
+            title="Reading Settings"
+            aria-label="Reading Settings"
+            className="h-10 w-10 sm:h-11 sm:w-11 hidden md:flex items-center justify-center border border-current hover:bg-[#FF3D00] hover:text-[#0A0A0A] hover:border-[#FF3D00] transition-all cursor-pointer bg-transparent text-current rounded-none"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
 
           {/* Hamburger Menu Icon for Mobile */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)} 
-            className="md:hidden h-11 w-11 flex items-center justify-center border border-current hover:bg-[#FF3D00] hover:text-[#0A0A0A] hover:border-[#FF3D00] transition-all cursor-pointer bg-transparent text-current"
+            aria-expanded={mobileMenuOpen}
+            aria-label="Toggle navigation menu"
+            className="md:hidden h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center border border-current hover:bg-[#FF3D00] hover:text-[#0A0A0A] hover:border-[#FF3D00] transition-all cursor-pointer bg-transparent text-current"
           >
             {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>

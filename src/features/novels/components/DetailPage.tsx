@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
 import { useNovelStore } from '../store/novelStore';
 import { useAuthStore } from '../../auth/store/authStore';
 import { useReaderStore } from '../../reader/store/readerStore';
+import { useLibraryStore } from '../../library/store/libraryStore';
 import { getThemeStyles } from '../../reader/utils/theme';
+import { getFlatChapters } from '../utils';
 import { COVERS } from '../../../assets/covers';
 import { BookmarkButton } from '../../library/components/BookmarkButton';
 import { ChapterList } from './ChapterList';
@@ -16,11 +18,16 @@ export const DetailPage: React.FC = () => {
   
   const currentUser = useAuthStore((state) => state.currentUser);
   const readerSettings = useReaderStore((state) => state.readerSettings);
+  const setActiveChapter = useReaderStore((state) => state.setActiveChapter);
+  const history = useLibraryStore((state) => state.history);
+  const logReadingProgress = useLibraryStore((state) => state.logReadingProgress);
+  const markChapterAsRead = useLibraryStore((state) => state.markChapterAsRead);
   const themeStyles = getThemeStyles(readerSettings.theme);
 
   const [userRating, setUserRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
 
   useEffect(() => {
     if (!selectedNovel) return;
@@ -50,6 +57,23 @@ export const DetailPage: React.FC = () => {
       </main>
     );
   }
+
+  const flatChapters = getFlatChapters(selectedNovel);
+  const userHistory = history.find(h => h.novelId === selectedNovel.id);
+  const continueChapter = userHistory 
+    ? flatChapters.find(c => c.id === userHistory.chapterId) || flatChapters[0]
+    : flatChapters[0];
+
+  const handleStartOrContinueReading = () => {
+    if (!continueChapter) {
+      triggerToast("No chapters available yet.");
+      return;
+    }
+    setActiveChapter(continueChapter);
+    logReadingProgress(selectedNovel.id, continueChapter.id, continueChapter.title);
+    markChapterAsRead(continueChapter.id);
+    setCurrentPage('reader');
+  };
 
   const handleRate = async (ratingValue: number) => {
     if (userRating !== null) {
@@ -99,7 +123,7 @@ export const DetailPage: React.FC = () => {
   };
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
       <button 
         onClick={() => setCurrentPage('dashboard')}
         className={`inline-flex items-center space-x-2 text-xs font-mono ${themeStyles.accentText} hover:text-[#FF3D00] bg-transparent border-none cursor-pointer`}
@@ -109,14 +133,26 @@ export const DetailPage: React.FC = () => {
       </button>
 
       {/* Master Detail Section */}
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+      <section className="grid grid-cols-1 md:grid-cols-12 gap-6 sm:gap-8 items-start">
         
-        {/* Book Cover */}
-        <div className={`md:col-span-4 border ${themeStyles.border} p-4 ${themeStyles.cardBg} relative`}>
-          <div className={`h-80 border ${themeStyles.border} relative ${themeStyles.bg} overflow-hidden flex items-center justify-center`}>
+        {/* Book Cover & Quick Actions */}
+        <div className={`md:col-span-4 border ${themeStyles.border} p-3 sm:p-4 ${themeStyles.cardBg} relative`}>
+          <div className={`h-64 sm:h-80 border ${themeStyles.border} relative ${themeStyles.bg} overflow-hidden flex items-center justify-center`}>
             {renderCover()}
           </div>
-          <BookmarkButton novelId={selectedNovel.id} />
+          
+          <div className="space-y-2 mt-3 sm:mt-4">
+            {continueChapter && (
+              <button
+                onClick={handleStartOrContinueReading}
+                className="w-full py-3 bg-[#FF3D00] hover:bg-white hover:text-black text-black font-black font-mono text-xs uppercase flex items-center justify-center gap-2 transition-colors cursor-pointer border-none"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>{userHistory ? 'Continue Reading' : 'Start Reading'}</span>
+              </button>
+            )}
+            <BookmarkButton novelId={selectedNovel.id} className="mt-0" />
+          </div>
         </div>
 
         {/* Metadata info */}
@@ -174,7 +210,7 @@ export const DetailPage: React.FC = () => {
                       onMouseEnter={() => userRating === null && setHoverRating(star)}
                       onMouseLeave={() => userRating === null && setHoverRating(null)}
                       onClick={() => handleRate(star)}
-                      className={`text-lg transition-all border-none bg-transparent p-0 cursor-pointer ${
+                      className={`text-2xl sm:text-xl p-1 sm:p-0.5 transition-all border-none bg-transparent cursor-pointer ${
                         userRating !== null ? 'cursor-default' : 'hover:scale-125'
                       } ${isGold ? 'text-amber-500' : 'text-neutral-500'}`}
                       title={userRating !== null ? `You rated this ${userRating} stars` : `Rate ${star} stars`}
@@ -194,8 +230,19 @@ export const DetailPage: React.FC = () => {
           <div className="space-y-2">
             <span className="text-xs font-mono text-[#FF3D00] font-bold block">SYNOPSIS:</span>
             <p className="font-serif text-current/90 text-sm leading-relaxed whitespace-pre-line text-justify">
-              {selectedNovel.synopsis}
+              {selectedNovel.synopsis.length > 280 && !isSynopsisExpanded
+                ? `${selectedNovel.synopsis.slice(0, 280)}...`
+                : selectedNovel.synopsis}
             </p>
+            {selectedNovel.synopsis.length > 280 && (
+              <button
+                type="button"
+                onClick={() => setIsSynopsisExpanded(!isSynopsisExpanded)}
+                className="text-xs font-mono text-[#FF3D00] hover:underline font-bold bg-transparent border-none cursor-pointer p-0 block"
+              >
+                {isSynopsisExpanded ? 'COLLAPSE ↑' : 'READ MORE ↓'}
+              </button>
+            )}
           </div>
         </div>
       </section>

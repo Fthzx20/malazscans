@@ -1,16 +1,19 @@
 /**
  * API Route: GET /api/novels
- * Returns all novels from Supabase Postgres via Prisma.
- * 
- * This is the server-side data source. Client can fetch here
- * instead of localStorage once the swap is complete.
+ * Returns all novels from Turso libSQL or Neon PostgreSQL via Prisma.
  */
 
 import { NextResponse } from 'next/server';
 import prisma from '../../../lib/prisma';
+import { getTursoNovels, isTursoConfigured } from '../../../lib/db';
 
 export async function GET() {
   try {
+    if (isTursoConfigured) {
+      const novels = await getTursoNovels();
+      return NextResponse.json(novels);
+    }
+
     const novels = await prisma.novel.findMany({
       include: {
         volumes: {
@@ -43,7 +46,7 @@ export async function GET() {
       addedDate: novel.addedDate.toISOString(),
       rating: String(novel.rating),
       ratingCount: novel.ratingCount || 0,
-      views: novel.views.toLocaleString(),
+      views: String(novel.views),
       genres: novel.genres,
       tags: novel.tags,
       coverImage: novel.coverImage || '',
