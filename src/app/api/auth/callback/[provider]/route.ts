@@ -7,7 +7,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import prisma from '../../../../../lib/prisma';
-import { exchangeGoogleCode, exchangeGitHubCode, OAuthProvider } from '../../../../../lib/auth/oauth';
+import { exchangeGoogleCode, exchangeGitHubCode, OAuthProvider, getAppOrigin } from '../../../../../lib/auth/oauth';
 import { setSessionCookie } from '../../../../../lib/auth/session';
 import { checkRateLimit, getClientIp } from '../../../../../lib/security/rateLimit';
 
@@ -22,7 +22,8 @@ export async function GET(
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  const { searchParams, origin } = new URL(request.url);
+  const origin = getAppOrigin(request);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const state = searchParams.get('state');
   const error = searchParams.get('error');

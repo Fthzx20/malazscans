@@ -17,6 +17,37 @@ export interface OAuthUserProfile {
 }
 
 /**
+ * Resolves the application origin safely across Localhost, Proxies, and Vercel/Production.
+ * Strips trailing slashes to prevent malformed redirect URIs.
+ */
+export function getAppOrigin(request: Request): string {
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+
+  // 1. If running locally (localhost or 127.0.0.1)
+  if (forwardedHost && (forwardedHost.includes('localhost') || forwardedHost.includes('127.0.0.1'))) {
+    return `http://${forwardedHost}`.replace(/\/+$/, '');
+  }
+
+  // 2. If NEXT_PUBLIC_APP_URL is explicitly set and we're not on localhost
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/+$/, '');
+  if (appUrl && (!forwardedHost || (!forwardedHost.includes('localhost') && !forwardedHost.includes('127.0.0.1')))) {
+    return appUrl;
+  }
+
+  // 3. Reverse proxy / Vercel host & proto headers
+  if (forwardedHost) {
+    const protocol = forwardedProto || 'https';
+    return `${protocol}://${forwardedHost}`.replace(/\/+$/, '');
+  }
+
+  // 4. Fallback to request.url
+  const url = new URL(request.url);
+  const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  return `${isLocal ? 'http' : 'https'}://${url.host}`.replace(/\/+$/, '');
+}
+
+/**
  * Generate a random cryptographic state token to prevent CSRF attacks in OAuth.
  */
 export function generateOAuthState(): string {
@@ -31,10 +62,11 @@ export function getOAuthAuthorizationUrl(
   state: string,
   origin: string
 ): string {
-  const redirectUri = `${origin}/api/auth/callback/${provider}`;
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  const redirectUri = `${cleanOrigin}/api/auth/callback/${provider}`;
 
   if (provider === 'google') {
-    const clientId = process.env.GOOGLE_CLIENT_ID || '';
+    const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -48,7 +80,7 @@ export function getOAuthAuthorizationUrl(
   }
 
   if (provider === 'github') {
-    const clientId = process.env.GITHUB_CLIENT_ID || '';
+    const clientId = (process.env.GITHUB_CLIENT_ID || '').trim();
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
@@ -68,9 +100,10 @@ export async function exchangeGoogleCode(
   code: string,
   origin: string
 ): Promise<OAuthUserProfile> {
-  const clientId = process.env.GOOGLE_CLIENT_ID || '';
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
-  const redirectUri = `${origin}/api/auth/callback/google`;
+  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  const redirectUri = `${cleanOrigin}/api/auth/callback/google`;
 
   // 1. Exchange code for access token
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -120,9 +153,10 @@ export async function exchangeGitHubCode(
   code: string,
   origin: string
 ): Promise<OAuthUserProfile> {
-  const clientId = process.env.GITHUB_CLIENT_ID || '';
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET || '';
-  const redirectUri = `${origin}/api/auth/callback/github`;
+  const clientId = (process.env.GITHUB_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.GITHUB_CLIENT_SECRET || '').trim();
+  const cleanOrigin = origin.replace(/\/+$/, '');
+  const redirectUri = `${cleanOrigin}/api/auth/callback/github`;
 
   // 1. Exchange code for access token
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {

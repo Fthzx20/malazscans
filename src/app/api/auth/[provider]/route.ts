@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getOAuthAuthorizationUrl, generateOAuthState, OAuthProvider } from '../../../../lib/auth/oauth';
+import { getOAuthAuthorizationUrl, generateOAuthState, OAuthProvider, getAppOrigin } from '../../../../lib/auth/oauth';
 import { checkRateLimit, getClientIp } from '../../../../lib/security/rateLimit';
 
 export async function GET(
@@ -32,7 +32,7 @@ export async function GET(
     : Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
 
   const { searchParams } = new URL(request.url);
-  const origin = new URL(request.url).origin;
+  const origin = getAppOrigin(request);
   const returnTo = searchParams.get('returnTo') || '/';
 
   if (!isConfigured) {
