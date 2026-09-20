@@ -9,9 +9,9 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 function getR2Client() {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const accountId = (process.env.R2_ACCOUNT_ID || '').replace(/['"]/g, '').trim();
+  const accessKeyId = (process.env.R2_ACCESS_KEY_ID || '').replace(/['"]/g, '').trim();
+  const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || '').replace(/['"]/g, '').trim();
 
   if (!accountId || !accessKeyId || !secretAccessKey) {
     throw new Error('R2 environment variables are not configured (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)');
@@ -25,13 +25,13 @@ function getR2Client() {
 }
 
 function getBucketName(): string {
-  const bucket = process.env.R2_BUCKET_NAME;
+  const bucket = (process.env.R2_BUCKET_NAME || '').replace(/['"]/g, '').trim();
   if (!bucket) throw new Error('R2_BUCKET_NAME is not configured');
   return bucket;
 }
 
 function getPublicUrl(): string {
-  const url = process.env.R2_PUBLIC_URL;
+  const url = (process.env.R2_PUBLIC_URL || '').replace(/['"]/g, '').trim().replace(/\/+$/, '');
   if (!url) throw new Error('R2_PUBLIC_URL is not configured');
   return url;
 }

@@ -6,8 +6,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../../lib/prisma';
 import { requireAdminSession } from '../../../../../../lib/auth/admin';
-
-
+import { upsertTursoChapter } from '../../../../../../lib/db/turso';
 
 export async function POST(
   request: Request,
@@ -40,8 +39,16 @@ export async function POST(
       targetVolumeId = firstVolume.id;
     }
 
-    const chapter = await prisma.chapter.create({
-      data: {
+    const chapter = await prisma.chapter.upsert({
+      where: { id },
+      update: {
+        title,
+        content: content || '',
+        volumeId: targetVolumeId,
+        isLocked: typeof isLocked === 'boolean' ? isLocked : false,
+        coinPrice: typeof coinPrice === 'number' ? coinPrice : 5,
+      },
+      create: {
         id,
         title,
         content: content || '',
@@ -51,6 +58,9 @@ export async function POST(
       },
     });
 
+    // Sync to Turso
+    await upsertTursoChapter(chapter, targetVolumeId);
+
     return NextResponse.json({
       id: chapter.id,
       title: chapter.title,
@@ -59,7 +69,7 @@ export async function POST(
       publishDate: chapter.publishDate.toISOString(),
     }, { status: 201 });
   } catch (error) {
-    console.error('Failed to create chapter:', error);
+    console.error('Failed to create/upsert chapter:', error);
     return NextResponse.json({ error: 'Failed to create chapter' }, { status: 500 });
   }
 }

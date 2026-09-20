@@ -59,11 +59,14 @@ export const ManageNovelsTab: React.FC = () => {
 
   const handleAddOrUpdateNovel = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminNovelTitle.trim() || !adminNovelAlt.trim() || !adminNovelAuthor.trim() || !adminNovelTranslator.trim()) {
-      triggerToast('Main Title, Alternative Title, Author, and Translator are required.');
+    if (!adminNovelTitle.trim() || !adminNovelAuthor.trim()) {
+      triggerToast('Main Title and Author are required.');
       return;
     }
 
+    const effectiveAlt = adminNovelAlt.trim() || adminNovelTitle.trim();
+    const effectiveTranslator = adminNovelTranslator.trim() || 'Malaz Scans';
+    const effectiveSchedule = adminNovelSchedule.trim() || 'Weekly';
     const genreList = adminNovelGenres.split(',').map(s => s.trim()).filter(Boolean);
     const tagList = adminNovelTags.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -75,18 +78,18 @@ export const ManageNovelsTab: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             title: adminNovelTitle,
-            alternativeTitle: adminNovelAlt,
+            alternativeTitle: effectiveAlt,
             originalTitle: adminNovelOriginalTitle,
             japaneseTitle: adminNovelJapaneseTitle,
             romajiTitle: adminNovelRomajiTitle,
             author: adminNovelAuthor,
             illustrator: adminNovelIllustrator,
-            translator: adminNovelTranslator,
+            translator: effectiveTranslator,
             publisher: adminNovelPublisher,
             genres: genreList,
             tags: tagList,
             status: adminNovelStatus,
-            releaseSchedule: adminNovelSchedule,
+            releaseSchedule: effectiveSchedule,
             isRecommended: adminNovelIsRecommended,
             synopsis: adminNovelSynopsis,
             coverImage: adminNovelCoverImage,
@@ -116,7 +119,7 @@ export const ManageNovelsTab: React.FC = () => {
         : defaultSlug;
 
       if (novels.find((n) => n.id === uniqueId)) {
-        triggerToast('A novel with this slug/title already exists.');
+        triggerToast('A novel with this slug/title already exists. Please edit it or choose a different title.');
         return;
       }
 
@@ -127,18 +130,18 @@ export const ManageNovelsTab: React.FC = () => {
           body: JSON.stringify({
             id: uniqueId,
             title: adminNovelTitle,
-            alternativeTitle: adminNovelAlt,
+            alternativeTitle: effectiveAlt,
             originalTitle: adminNovelOriginalTitle,
             japaneseTitle: adminNovelJapaneseTitle,
             romajiTitle: adminNovelRomajiTitle,
             author: adminNovelAuthor,
             illustrator: adminNovelIllustrator,
-            translator: adminNovelTranslator,
+            translator: effectiveTranslator,
             publisher: adminNovelPublisher,
             genres: genreList,
             tags: tagList,
             status: adminNovelStatus,
-            releaseSchedule: adminNovelSchedule,
+            releaseSchedule: effectiveSchedule,
             isRecommended: adminNovelIsRecommended,
             synopsis: adminNovelSynopsis,
             coverImage: adminNovelCoverImage,

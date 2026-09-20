@@ -11,7 +11,9 @@ export async function GET() {
   try {
     if (isTursoConfigured) {
       const novels = await getTursoNovels();
-      return NextResponse.json(novels);
+      if (novels && novels.length > 0) {
+        return NextResponse.json(novels);
+      }
     }
 
     const novels = await prisma.novel.findMany({

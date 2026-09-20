@@ -6,8 +6,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../lib/prisma';
 import { requireAdminSession } from '../../../../../lib/auth/admin';
-
-
+import { syncNovelToTurso, deleteTursoNovel } from '../../../../../lib/db/turso';
 
 export async function PATCH(
   request: Request,
@@ -59,7 +58,22 @@ export async function PATCH(
     if (body.genres !== undefined) data.genres = body.genres;
     if (body.tags !== undefined) data.tags = body.tags;
 
-    const updated = await prisma.novel.update({ where: { id }, data });
+    const updated = await prisma.novel.update({
+      where: { id },
+      data,
+      include: {
+        volumes: {
+          include: {
+            chapters: { orderBy: { publishDate: 'asc' } },
+          },
+          orderBy: { volumeNumber: 'asc' },
+        },
+      },
+    });
+
+    // Sync to Turso
+    await syncNovelToTurso(updated);
+
     return NextResponse.json({ id: updated.id, title: updated.title });
   } catch (error) {
     console.error('Failed to update novel:', error);
@@ -79,6 +93,7 @@ export async function DELETE(
 
   try {
     await prisma.novel.delete({ where: { id } });
+    await deleteTursoNovel(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to delete novel:', error);

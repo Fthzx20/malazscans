@@ -6,8 +6,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../lib/prisma';
 import { requireAdminSession } from '../../../../../lib/auth/admin';
-
-
+import { deleteTursoVolume } from '../../../../../lib/db/turso';
 
 export async function DELETE(
   _request: Request,
@@ -21,6 +20,7 @@ export async function DELETE(
 
   try {
     await prisma.volume.delete({ where: { id } });
+    await deleteTursoVolume(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to delete volume:', error);

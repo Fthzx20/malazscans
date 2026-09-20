@@ -24,15 +24,13 @@ export async function GET(
     }
 
     if (isTursoConfigured) {
-      const novel = await getTursoNovelById(id);
-      if (!novel) {
-        return NextResponse.json({ error: 'Novel not found' }, { status: 404 });
+      const tursoNovel = await getTursoNovelById(id);
+      if (tursoNovel) {
+        return NextResponse.json({
+          ...tursoNovel,
+          bookmarkCount,
+        });
       }
-
-      return NextResponse.json({
-        ...novel,
-        bookmarkCount,
-      });
     }
 
     const novel = await prisma.novel.findUnique({

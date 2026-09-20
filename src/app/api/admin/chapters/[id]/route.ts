@@ -6,8 +6,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../lib/prisma';
 import { requireAdminSession } from '../../../../../lib/auth/admin';
-
-
+import { upsertTursoChapter, deleteTursoChapter } from '../../../../../lib/db/turso';
 
 export async function PATCH(
   request: Request,
@@ -34,6 +33,10 @@ export async function PATCH(
     if (body.coinPrice !== undefined) data.coinPrice = Number(body.coinPrice);
 
     const updated = await prisma.chapter.update({ where: { id }, data });
+
+    // Sync to Turso
+    await upsertTursoChapter(updated, updated.volumeId);
+
     return NextResponse.json({ 
       id: updated.id, 
       title: updated.title,
@@ -58,6 +61,7 @@ export async function DELETE(
 
   try {
     await prisma.chapter.delete({ where: { id } });
+    await deleteTursoChapter(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to delete chapter:', error);

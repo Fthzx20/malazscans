@@ -97,6 +97,67 @@ export async function getTursoNovels(): Promise<Novel[]> {
       };
     });
 
+    if (novels.length === 0) {
+      try {
+        const prismaModule = await import('../prisma');
+        const prisma = prismaModule.default;
+        const prismaNovels = await prisma.novel.findMany({
+          include: {
+            volumes: {
+              include: {
+                chapters: { orderBy: { publishDate: 'asc' } },
+              },
+              orderBy: { volumeNumber: 'asc' },
+            },
+          },
+          orderBy: { addedDate: 'desc' },
+        });
+
+        if (prismaNovels && prismaNovels.length > 0) {
+          for (const pn of prismaNovels) {
+            await syncNovelToTurso(pn);
+          }
+          return prismaNovels.map((pn) => ({
+            id: pn.id,
+            title: pn.title,
+            alternativeTitle: pn.alternativeTitle,
+            originalTitle: pn.originalTitle,
+            japaneseTitle: pn.japaneseTitle,
+            romajiTitle: pn.romajiTitle,
+            author: pn.author,
+            illustrator: pn.illustrator,
+            translator: pn.translator,
+            publisher: pn.publisher,
+            synopsis: pn.synopsis,
+            status: pn.status,
+            releaseSchedule: pn.releaseSchedule,
+            addedDate: pn.addedDate.toISOString(),
+            rating: String(pn.rating),
+            ratingCount: pn.ratingCount || 0,
+            views: String(pn.views),
+            genres: pn.genres,
+            tags: pn.tags,
+            coverImage: pn.coverImage || undefined,
+            isRecommended: pn.isRecommended,
+            volumes: pn.volumes.map((v) => ({
+              volumeNumber: v.volumeNumber,
+              title: v.title,
+              chapters: v.chapters.map((c) => ({
+                id: c.id,
+                title: c.title,
+                publishDate: c.publishDate.toISOString(),
+                content: c.content,
+                isLocked: c.isLocked,
+                coinPrice: c.coinPrice,
+              })),
+            })),
+          }));
+        }
+      } catch (syncErr) {
+        console.warn('Auto-sync from Prisma to Turso skipped:', syncErr);
+      }
+    }
+
     return novels.length > 0 ? novels : INITIAL_NOVELS_DATA;
   } catch (error) {
     console.error('Error fetching novels from Turso, using fallback:', error);
@@ -240,14 +301,61 @@ export async function upsertTursoNovel(novel: Novel): Promise<void> {
 }
 
 /**
+ * Upsert volume into Turso.
+ */
+export async function upsertTursoVolume(
+  vol: { id?: string; volumeNumber: number; title: string },
+  novelId: string
+): Promise<string> {
+  const client = getTursoClient();
+  if (!client) return vol.id || `${novelId}-vol-${vol.volumeNumber}`;
+
+  const volumeId = vol.id || `${novelId}-vol-${vol.volumeNumber}`;
+  await client.execute({
+    sql: `
+      INSERT INTO volumes (id, volumeNumber, title, novelId)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        volumeNumber = excluded.volumeNumber,
+        title = excluded.title
+    `,
+    args: [volumeId, vol.volumeNumber, vol.title, novelId],
+  });
+
+  return volumeId;
+}
+
+/**
+ * Delete a volume from Turso.
+ */
+export async function deleteTursoVolume(volumeId: string): Promise<void> {
+  const client = getTursoClient();
+  if (!client) return;
+
+  await client.execute({
+    sql: 'DELETE FROM chapters WHERE volumeId = ?',
+    args: [volumeId],
+  });
+
+  await client.execute({
+    sql: 'DELETE FROM volumes WHERE id = ?',
+    args: [volumeId],
+  });
+}
+
+/**
  * Upsert chapter into Turso.
  */
 export async function upsertTursoChapter(
-  chapter: Chapter,
+  chapter: { id: string; title: string; publishDate?: string | Date; content?: string; isLocked?: boolean; coinPrice?: number },
   volumeId: string
 ): Promise<void> {
   const client = getTursoClient();
   if (!client) return;
+
+  const pubDate = chapter.publishDate instanceof Date
+    ? chapter.publishDate.toISOString()
+    : chapter.publishDate || new Date().toISOString();
 
   await client.execute({
     sql: `
@@ -256,18 +364,112 @@ export async function upsertTursoChapter(
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         title = excluded.title,
+        publishDate = excluded.publishDate,
         content = excluded.content,
         isLocked = excluded.isLocked,
-        coinPrice = excluded.coinPrice
+        coinPrice = excluded.coinPrice,
+        volumeId = excluded.volumeId
     `,
     args: [
       chapter.id,
       chapter.title,
-      chapter.publishDate || new Date().toISOString(),
+      pubDate,
       chapter.content || '',
       chapter.isLocked ? 1 : 0,
       chapter.coinPrice || 5,
       volumeId,
     ],
   });
+}
+
+/**
+ * Delete chapter from Turso.
+ */
+export async function deleteTursoChapter(chapterId: string): Promise<void> {
+  const client = getTursoClient();
+  if (!client) return;
+
+  await client.execute({
+    sql: 'DELETE FROM chapters WHERE id = ?',
+    args: [chapterId],
+  });
+}
+
+/**
+ * Delete novel and all its related volumes/chapters from Turso.
+ */
+export async function deleteTursoNovel(novelId: string): Promise<void> {
+  const client = getTursoClient();
+  if (!client) return;
+
+  try {
+    const volRows = await client.execute({
+      sql: 'SELECT id FROM volumes WHERE novelId = ?',
+      args: [novelId],
+    });
+    for (const v of volRows.rows) {
+      await client.execute({
+        sql: 'DELETE FROM chapters WHERE volumeId = ?',
+        args: [String(v.id)],
+      });
+    }
+    await client.execute({
+      sql: 'DELETE FROM volumes WHERE novelId = ?',
+      args: [novelId],
+    });
+    await client.execute({
+      sql: 'DELETE FROM novels WHERE id = ?',
+      args: [novelId],
+    });
+  } catch (err) {
+    console.error(`Failed to delete novel ${novelId} from Turso:`, err);
+  }
+}
+
+/**
+ * Full Novel Synchronizer: Upserts a novel, its volumes, and its chapters into Turso.
+ */
+export async function syncNovelToTurso(novel: any): Promise<void> {
+  const client = getTursoClient();
+  if (!client) return;
+
+  try {
+    await upsertTursoNovel({
+      id: novel.id,
+      title: novel.title,
+      alternativeTitle: novel.alternativeTitle || '',
+      originalTitle: novel.originalTitle || '',
+      japaneseTitle: novel.japaneseTitle || '',
+      romajiTitle: novel.romajiTitle || '',
+      author: novel.author,
+      illustrator: novel.illustrator || '',
+      translator: novel.translator || '',
+      publisher: novel.publisher || '',
+      synopsis: novel.synopsis || '',
+      status: novel.status || 'ONGOING',
+      releaseSchedule: novel.releaseSchedule || '',
+      addedDate: novel.addedDate ? new Date(novel.addedDate).toISOString() : new Date().toISOString(),
+      rating: String(novel.rating || '0'),
+      ratingCount: Number(novel.ratingCount || 0),
+      views: String(novel.views || '0'),
+      genres: novel.genres || [],
+      tags: novel.tags || [],
+      coverImage: novel.coverImage || undefined,
+      isRecommended: Boolean(novel.isRecommended),
+      volumes: [],
+    });
+
+    if (Array.isArray(novel.volumes)) {
+      for (const vol of novel.volumes) {
+        const volumeId = await upsertTursoVolume(vol, novel.id);
+        if (Array.isArray(vol.chapters)) {
+          for (const chap of vol.chapters) {
+            await upsertTursoChapter(chap, volumeId);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to sync novel ${novel.id} to Turso:`, err);
+  }
 }

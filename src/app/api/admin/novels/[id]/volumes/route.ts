@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../../lib/prisma';
 import { requireAdminSession } from '../../../../../../lib/auth/admin';
+import { upsertTursoVolume } from '../../../../../../lib/db/turso';
 
 
 
@@ -70,6 +71,13 @@ export async function POST(
         title: title.trim(),
       },
     });
+
+    // Sync volume to Turso
+    await upsertTursoVolume({
+      id: volume.id,
+      volumeNumber: volume.volumeNumber,
+      title: volume.title,
+    }, novelId);
 
     return NextResponse.json({
       id: volume.id,

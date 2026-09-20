@@ -25,10 +25,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '')
+      .replace(/['"]/g, '')
+      .trim()
+      .toLowerCase();
+
     const isAdminUser =
       session.role === 'admin' ||
-      (Boolean(process.env.ADMIN_EMAIL) && session.email === process.env.ADMIN_EMAIL) ||
-      (Boolean(process.env.NEXT_PUBLIC_ADMIN_EMAIL) && session.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL);
+      (Boolean(adminEmail) && session.email.toLowerCase() === adminEmail);
 
     const contentType = request.headers.get('content-type') || '';
 

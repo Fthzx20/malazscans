@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { X, Upload, Trash2, ChevronDown, ChevronUp, Link as LinkIcon } from 'lucide-react';
+import { X, Upload, Trash2, ChevronDown, ChevronUp, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { useAdminStore } from '../store/adminStore';
+import { useNovelStore } from '../../novels/store/novelStore';
 
 interface CreateNovelDrawerProps {
   onSubmit: (e: React.FormEvent) => void;
@@ -79,8 +80,10 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverInputMode, setCoverInputMode] = useState<'upload' | 'url'>('upload');
   const [urlInput, setUrlInput] = useState('');
+  const triggerToast = useNovelStore((state) => state.triggerToast);
 
   // ESC key closes drawer
   useEffect(() => {
@@ -105,25 +108,33 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
 
   // Cover image handlers — uploads to R2
   const processFile = async (file: File) => {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return;
-    if (file.size > 10 * 1024 * 1024) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      triggerToast('Only JPG, PNG, and WebP images are supported.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      triggerToast('Cover image must be under 10MB.');
+      return;
+    }
 
+    setIsUploadingCover(true);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('folder', 'covers');
 
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Upload failed');
+      }
       const { url } = await res.json();
       setAdminNovelCoverImage(url);
-    } catch {
-      // Fallback to base64 if R2 unavailable
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target?.result) setAdminNovelCoverImage(e.target.result as string);
-      };
-      reader.readAsDataURL(file);
+      triggerToast('Cover image uploaded successfully.');
+    } catch (err: any) {
+      triggerToast(err.message || 'Failed to upload cover. Try direct URL or smaller image.');
+    } finally {
+      setIsUploadingCover(false);
     }
   };
 
@@ -222,7 +233,7 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
               <div className="space-y-1.5">
                 <label className={labelCls}>Alternative Title (English)</label>
                 <input type="text" value={adminNovelAlt} onChange={e => setAdminNovelAlt(e.target.value)}
-                  placeholder="Alt English name" className={inputCls} required />
+                  placeholder="Alt English name (optional)" className={inputCls} />
               </div>
               <div className="space-y-1.5">
                 <label className={labelCls}>Original Title</label>
@@ -260,9 +271,9 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className={labelCls}>Translator <span className="text-[#FF3D00]">*</span></label>
+                <label className={labelCls}>Translator</label>
                 <input type="text" value={adminNovelTranslator} onChange={e => setAdminNovelTranslator(e.target.value)}
-                  placeholder="Alex Mercer" className={inputCls} required />
+                  placeholder="Malaz Scans" className={inputCls} />
               </div>
               <div className="space-y-1.5">
                 <label className={labelCls}>Publisher</label>
@@ -414,19 +425,27 @@ export const CreateNovelDrawer: React.FC<CreateNovelDrawerProps> = ({ onSubmit }
                 </div>
 
                 {coverInputMode === 'upload' ? (
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed py-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all px-4 ${
-                      isDragging ? 'border-[#FF3D00] bg-[#FF3D00]/5' : 'border-[#262626] hover:border-[#444]'
-                    }`}
-                  >
-                    <Upload className="w-7 h-7 text-[#444] mb-2" />
-                    <span className="text-xs font-mono font-bold text-[#737373] block">Drag & Drop cover image here</span>
-                    <span className="text-[10px] font-mono text-[#555] block mt-1">or click to browse — JPG, PNG, WEBP · Max 10MB</span>
-                  </div>
+                  isUploadingCover ? (
+                    <div className="border-2 border-dashed border-[#FF3D00] bg-[#FF3D00]/5 py-8 flex flex-col items-center justify-center text-center px-4">
+                      <Loader2 className="w-7 h-7 text-[#FF3D00] animate-spin mb-2" />
+                      <span className="text-xs font-mono font-bold text-white block">Uploading cover to Cloudflare R2...</span>
+                      <span className="text-[10px] font-mono text-[#737373] block mt-1">Please wait a moment</span>
+                    </div>
+                  ) : (
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`border-2 border-dashed py-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all px-4 ${
+                        isDragging ? 'border-[#FF3D00] bg-[#FF3D00]/5' : 'border-[#262626] hover:border-[#444]'
+                      }`}
+                    >
+                      <Upload className="w-7 h-7 text-[#444] mb-2" />
+                      <span className="text-xs font-mono font-bold text-[#737373] block">Drag & Drop cover image here</span>
+                      <span className="text-[10px] font-mono text-[#555] block mt-1">or click to browse — JPG, PNG, WEBP · Max 10MB</span>
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-3 p-4 border border-[#262626] bg-[#0A0A0A]">
                     <label className={labelCls}>Public Image URL</label>
