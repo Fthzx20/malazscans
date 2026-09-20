@@ -24,9 +24,6 @@ export async function GET() {
     return NextResponse.json(mapped);
   } catch (error) {
     console.error('Failed to fetch recommendations:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch recommendations' },
-      { status: 500 }
-    );
+    return NextResponse.json([]);
   }
 }

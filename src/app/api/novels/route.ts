@@ -66,9 +66,6 @@ export async function GET() {
     return NextResponse.json(mapped);
   } catch (error) {
     console.error('Failed to fetch novels:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch novels' },
-      { status: 500 }
-    );
+    return NextResponse.json([]);
   }
 }

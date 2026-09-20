@@ -16,7 +16,7 @@ async function getAuthUserId(): Promise<string | null> {
 export async function GET() {
   const userId = await getAuthUserId();
   if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json([]);
   }
 
   try {
